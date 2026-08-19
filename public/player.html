@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0b2818" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>♠</text></svg>" />
+  <title>Blackjack Royale — Joueur</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;800&family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/shared.css" />
+  <link rel="stylesheet" href="/css/player.css" />
+</head>
+<body>
+  <!-- ================== ÉCRAN LOBBY ================== -->
+  <section class="screen" id="screen-lobby">
+    <h1 class="display"><span class="gold-text">Blackjack Royale</span></h1>
+    <p class="subtitle">Rejoins la table</p>
+    <form id="join-form">
+      <label class="field-label" for="name-input">Ton pseudo</label>
+      <input id="name-input" type="text" maxlength="16" placeholder="Ex. As de Pique" autocomplete="nickname" required />
+
+      <label class="field-label">Ton avatar</label>
+      <div class="picker" id="avatar-picker"></div>
+
+      <label class="field-label">Ta couleur</label>
+      <div class="picker" id="color-picker"></div>
+
+      <button type="submit" class="cta big" id="join-btn">Prendre place 🎰</button>
+      <p class="form-error" id="join-error"></p>
+    </form>
+  </section>
+
+  <!-- ================== ÉCRAN JEU ================== -->
+  <section class="screen game" id="screen-game" hidden>
+    <header class="game-head">
+      <span class="me-avatar" id="me-avatar"></span>
+      <span class="me-name" id="me-name"></span>
+      <span class="me-balance" id="me-balance">🪙 0</span>
+    </header>
+
+    <div class="status-line">
+      <span class="badge waiting" id="me-status">En attente</span>
+      <div class="timerbar" id="me-timer" hidden><i></i></div>
+    </div>
+
+    <!-- Zone mise -->
+    <div class="panel" id="bet-panel" hidden>
+      <p class="panel-title">Place ta mise</p>
+      <div class="bet-amount display" id="bet-amount">0</div>
+      <div class="chip-row">
+        <button class="chip c10" data-chip="10">10</button>
+        <button class="chip c25" data-chip="25">25</button>
+        <button class="chip c50" data-chip="50">50</button>
+        <button class="chip c100" data-chip="100">100</button>
+        <button class="chip c500" data-chip="500">500</button>
+      </div>
+      <div class="bet-actions">
+        <button class="ghost-btn" id="bet-clear">Effacer</button>
+        <button class="cta" id="bet-confirm" disabled>Miser ✓</button>
+      </div>
+    </div>
+
+    <!-- Mains du joueur -->
+    <div class="panel my-hands" id="hands-panel" hidden>
+      <div id="my-hands"></div>
+      <div class="dealer-mini" id="dealer-mini" hidden>
+        <span class="dealer-mini-label">Croupier</span>
+        <span class="total-pill" id="dealer-mini-total">?</span>
+      </div>
+    </div>
+
+    <!-- Message central (résultat / attente) -->
+    <div class="center-msg" id="center-msg"></div>
+
+    <!-- Boutons d'action -->
+    <footer class="actions" id="actions">
+      <button class="action-btn hit" data-action="hit">
+        <span class="action-icon">🃏</span> Hit
+      </button>
+      <button class="action-btn stand" data-action="stand">
+        <span class="action-icon">✋</span> Stand
+      </button>
+      <button class="action-btn double" data-action="double">
+        <span class="action-icon">💰</span> Double
+      </button>
+      <button class="action-btn split" data-action="split">
+        <span class="action-icon">✂️</span> Split
+      </button>
+    </footer>
+  </section>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/shared.js"></script>
+  <script src="/js/player.js"></script>
+</body>
+</html>
