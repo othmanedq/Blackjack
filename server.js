@@ -21,18 +21,45 @@ app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'player.
 // L'ordinateur (table de casino) ouvre /host.
 app.get('/host', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'host.html')));
 
-/** Première adresse IPv4 non interne (Wi-Fi/Ethernet local). */
-function getLocalIp() {
+/**
+ * Toutes les adresses IPv4 non internes, triées de la plus probable à la
+ * moins probable pour un réseau Wi-Fi domestique. Les interfaces virtuelles
+ * (VPN, machines virtuelles, AirDrop…) passent en dernier.
+ */
+function getLocalIps() {
   const interfaces = os.networkInterfaces();
+  const candidates = [];
   for (const name of Object.keys(interfaces)) {
     for (const iface of interfaces[name] || []) {
-      if (iface.family === 'IPv4' && !iface.internal) return iface.address;
+      // Selon la version de Node, family vaut 'IPv4' ou 4.
+      if ((iface.family === 'IPv4' || iface.family === 4) && !iface.internal) {
+        candidates.push({ name, address: iface.address, score: scoreInterface(name, iface.address) });
+      }
     }
   }
-  return 'localhost';
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates;
 }
 
-const localIp = getLocalIp();
+function scoreInterface(name, address) {
+  let score = 0;
+  const n = name.toLowerCase();
+  // Interfaces physiques habituelles (en0 = Wi-Fi sur Mac, wlan/eth/Wi-Fi ailleurs)
+  if (/^(en0|en1|eth0|wlan0|wi-?fi)/.test(n)) score += 40;
+  // Interfaces virtuelles : VPN, VM, conteneurs, AirDrop, bridges
+  if (/(utun|tun|tap|vmnet|vboxnet|docker|br-|veth|awdl|llw|bridge|ppp|zt|ts)/.test(n)) score -= 50;
+  // Plages privées typiques d'une box / d'un routeur domestique
+  if (address.startsWith('192.168.')) score += 20;
+  else if (address.startsWith('10.')) score += 10;
+  else if (/^172\.(1[6-9]|2\d|3[01])\./.test(address)) score += 10;
+  // Plage d'auto-configuration (pas de DHCP) : rarement la bonne
+  if (address.startsWith('169.254.')) score -= 40;
+  return score;
+}
+
+const localIps = getLocalIps();
+// L'adresse peut être forcée : HOST_IP=192.168.1.42 npm start
+const localIp = process.env.HOST_IP || (localIps[0] ? localIps[0].address : 'localhost');
 const joinUrl = `http://${localIp}:${PORT}/`;
 
 const game = new Game((state) => io.emit('state', state));
@@ -125,6 +152,16 @@ server.listen(PORT, () => {
   console.log(`  Table (ordinateur) : http://localhost:${PORT}/host`);
   console.log(`  Joueurs (mobiles)  : ${joinUrl}`);
   console.log('  ──────────────────────────────────────────');
+  if (localIps.length > 1) {
+    console.log('  Plusieurs interfaces réseau détectées — si les téléphones');
+    console.log('  ne se connectent pas, essayez une autre adresse :');
+    for (const c of localIps) {
+      const marker = c.address === localIp ? '→' : ' ';
+      console.log(`   ${marker} http://${c.address}:${PORT}/   (${c.name})`);
+    }
+    console.log(`  Pour en forcer une : HOST_IP=<adresse> npm start`);
+    console.log('  ──────────────────────────────────────────');
+  }
   console.log('  Les téléphones doivent être sur le même réseau Wi-Fi.');
   console.log('');
 });
