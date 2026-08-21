@@ -22,7 +22,7 @@ const DEFAULTS = {
   minBet: 10,
   betTimeMs: 30000,
   turnTimeMs: 30000,
-  resultsTimeMs: 12000,
+  resultsTimeMs: 6000,
   dealerDrawDelayMs: 900,
   maxPlayers: 7,
 };

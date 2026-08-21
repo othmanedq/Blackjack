@@ -324,7 +324,7 @@ function tick() {
       duration = 30000;
     } else if (state.phase === 'results' && state.resultsEndsAt) {
       endsAt = state.resultsEndsAt;
-      duration = 12000;
+      duration = 6000;
     }
     if (endsAt) {
       const rem = clock.remaining(endsAt);
