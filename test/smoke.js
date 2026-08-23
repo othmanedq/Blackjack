@@ -247,6 +247,76 @@ console.log('✓ valeurs de mains, blackjack naturel, sabot 6 jeux');
   console.log('✓ le nombre de mains après split est plafonné à maxSplitHands');
 })();
 
+// -------------------------------------------------------- assurance de l'as
+
+(() => {
+  // Sabot maîtrisé : draw() = shoe.pop(), donc la fin du tableau part en
+  // premier. Pour 2 joueurs, l'ordre de distribution est
+  // [c1 j1, c1 j2, carte-haut croupier, c2 j1, c2 j2, carte cachée].
+  const game = new Game(() => {}, { betTimeMs: 100000, turnTimeMs: 100000, insuranceTimeMs: 100000 });
+  const alice = game.addPlayer({ token: 'a', name: 'Alice' });
+  const zoe = game.addPlayer({ token: 'z', name: 'Zoe' });
+  game.setGameMode('table');
+  game.startBetting();
+  // Croupier : As visible + 5 caché (16, pas de blackjack). Alice 9+8=17, Zoe 9+7=16.
+  game.shoe = [c('5'), c('7'), c('8'), c('A'), c('9'), c('9')];
+  game.placeBet('a', 100);
+  game.placeBet('z', 100);
+
+  assert.strictEqual(game.phase, 'insurance', 'l\'As visible du croupier doit ouvrir l\'assurance');
+  assert.strictEqual(game.dealer.cards[0].rank, 'A');
+  assert.strictEqual(game.publicState().dealer.cards[1].hidden, true, 'la carte cachée ne fuit toujours pas');
+  assert.strictEqual(alice.balance, 900, 'mise déduite, assurance pas encore prise');
+
+  assert.throws(() => game.placeInsurance('a', 51), /entre 0 et 50/i, 'plafond = moitié de la mise (50)');
+  game.placeInsurance('a', 50);
+  assert.strictEqual(alice.balance, 850, 'mise d\'assurance déduite');
+  assert.strictEqual(game.phase, 'insurance', 'Zoe n\'a pas encore décidé');
+  assert.throws(() => game.placeInsurance('a', 10), /déjà prise/i);
+
+  game.placeInsurance('z', 0); // Zoe décline → tout le monde a décidé, clôture immédiate.
+  assert.notStrictEqual(game.phase, 'insurance', 'clôture dès que tout le monde a décidé');
+  assert.strictEqual(alice.insuranceResult, 'lose', 'le croupier n\'a pas blackjack (5 caché)');
+  assert.strictEqual(zoe.insuranceResult, null, 'Zoe n\'a rien misé : pas de résultat d\'assurance');
+  assert.strictEqual(alice.balance, 850, 'assurance perdue : pas de remboursement');
+  assert.deepStrictEqual(game.current, { playerId: 'a', handIndex: 0 }, 'la manche continue normalement ensuite');
+  console.log('✓ assurance perdue quand le croupier n\'a pas blackjack, la manche continue');
+
+  // Même scénario, mais le croupier a bien blackjack caché → paiement 2:1.
+  const game2 = new Game(() => {}, { betTimeMs: 100000, turnTimeMs: 100000, insuranceTimeMs: 100000 });
+  const bob = game2.addPlayer({ token: 'b', name: 'Bob' });
+  game2.setGameMode('table');
+  game2.startBetting();
+  game2.shoe = [c('K'), c('8'), c('A'), c('9')]; // croupier : As + Roi = blackjack
+  game2.placeBet('b', 100);
+
+  assert.strictEqual(game2.phase, 'insurance');
+  game2.placeInsurance('b', 50);
+  assert.strictEqual(game2.phase, 'results', 'le blackjack du croupier règle la manche immédiatement');
+  assert.strictEqual(bob.insuranceResult, 'win');
+  assert.strictEqual(bob.balance, 1000, '850 + 150 (mise rendue + gain 2:1) = 1000');
+  assert.strictEqual(bob.hands[0].result, 'lose', 'sa main à 17 perd face au blackjack du croupier');
+  assert.strictEqual(bob.lastNet, 0, '+100 d\'assurance − 100 de mise perdue = 0');
+  console.log('✓ assurance payée 2:1 quand le croupier a bien blackjack, réglée immédiatement');
+
+  // Un joueur déconnecté pendant la décision ne bloque pas la clôture.
+  const game3 = new Game(() => {}, { betTimeMs: 100000, turnTimeMs: 100000, insuranceTimeMs: 100000 });
+  const carl = game3.addPlayer({ token: 'c', name: 'Carl' });
+  const dan = game3.addPlayer({ token: 'd', name: 'Dan' });
+  game3.setGameMode('table');
+  game3.startBetting();
+  // Ordre à 2 joueurs : c1, d1, haut-croupier, c2, d2, caché.
+  game3.shoe = [c('5'), c('8'), c('8'), c('A'), c('9'), c('9')];
+  game3.placeBet('c', 100);
+  game3.placeBet('d', 100);
+  assert.strictEqual(game3.phase, 'insurance');
+
+  game3.disconnectPlayer('d'); // part avant de décider
+  game3.placeInsurance('c', 0);
+  assert.notStrictEqual(game3.phase, 'insurance', 'un déconnecté ne doit pas bloquer la clôture');
+  console.log('✓ un joueur déconnecté ne bloque pas la clôture de la phase d\'assurance');
+})();
+
 // ---------------------------------------------------------------- manche
 
 (async () => {
@@ -256,6 +326,7 @@ console.log('✓ valeurs de mains, blackjack naturel, sabot 6 jeux');
     turnTimeMs: 150,
     resultsTimeMs: 200,
     dealerDrawDelayMs: 5,
+    insuranceTimeMs: 50,
   });
 
   const alice = game.addPlayer({ token: 'tok-alice', name: 'Alice', color: '#f00', avatar: '🦊' });
@@ -274,7 +345,7 @@ console.log('✓ valeurs de mains, blackjack naturel, sabot 6 jeux');
 
   game.placeBet('tok-bob', 50);
   // Tout le monde a misé → distribution immédiate.
-  assert.ok(['playing', 'results'].includes(game.phase), `phase inattendue : ${game.phase}`);
+  assert.ok(['playing', 'results', 'insurance'].includes(game.phase), `phase inattendue : ${game.phase}`);
   assert.strictEqual(alice.hands[0].cards.length, 2);
   assert.strictEqual(game.dealer.cards.length, 2);
 
@@ -283,6 +354,14 @@ console.log('✓ valeurs de mains, blackjack naturel, sabot 6 jeux');
     const pub = game.publicState();
     assert.strictEqual(pub.dealer.cards[1].hidden, true);
     assert.strictEqual(pub.dealer.cards[1].rank, undefined);
+  }
+
+  // Croupier montrant un As : l'assurance s'ouvre. Personne ne mise dessus
+  // ici (insuranceTimeMs très court) → elle se referme automatiquement.
+  if (game.phase === 'insurance') {
+    assert.strictEqual(game.dealer.cards[0].rank, 'A');
+    for (let i = 0; i < 30 && game.phase === 'insurance'; i++) await sleep(15);
+    assert.notStrictEqual(game.phase, 'insurance', 'l\'assurance doit se refermer automatiquement');
   }
 
   // On joue : chaque main courante stand (le hit est testé au passage si possible).

@@ -144,6 +144,15 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Assurance : proposée quand le croupier montre un As, jusqu'à la moitié de la mise.
+  socket.on('player:insurance', ({ amount } = {}, ack) => {
+    respond(ack, () => {
+      const token = socketPlayer.get(socket.id);
+      if (!token) throw new Error('Rejoins la partie d’abord.');
+      game.placeInsurance(token, amount);
+    });
+  });
+
   // Mode de jeu, obligatoire avant la première manche (écran table ou chef).
   socket.on('host:setGameMode', ({ mode } = {}) => {
     try {

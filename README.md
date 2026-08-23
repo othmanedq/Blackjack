@@ -57,7 +57,8 @@ Cette proposition n'est offerte que dans les 20 minutes suivant la déconnexion,
 ### Les joueurs (smartphones — manettes)
 - Interface **mobile-first**, sans scroll parasite.
 - Lobby : pseudo + avatar + couleur.
-- Mise avec des **jetons tactiles** (10 / 25 / 50 / 100 / 500).
+- Mise avec des **jetons tactiles** (10 / 25 / 50 / 100 / 500) ou en un tap avec **All-in** (tout le solde).
+- **Assurance** proposée automatiquement quand le croupier montre un As, jusqu'à la moitié de la mise.
 - Gros boutons **Hit / Stand / Double / Split**, actifs à son tour (vibration du téléphone quand c'est à soi).
 - **Pré-choix** : en attendant son tour, on peut déjà taper l'action voulue (ex. Stand sur une main forte) — elle se joue automatiquement dès que le tour arrive vraiment, sans avoir à surveiller l'écran. Retaper le même bouton annule le pré-choix ; un simple badge (« 🕐 Stand programmé ») le montre aux autres.
 - Reconnexion automatique : en cas de rafraîchissement, le joueur retrouve sa place et son solde.
@@ -73,7 +74,8 @@ Cette proposition n'est offerte que dans les 20 minutes suivant la déconnexion,
 | Égalité | **Push** — la mise est rendue |
 | Double Down | sur les 2 premières cartes, si le solde le permet |
 | Split | sur une paire de même rang ; **resplit autorisé** si une nouvelle paire apparaît, jusqu'à 4 mains au total |
-| Timers | 30 s pour miser, 30 s par tour (stand automatique) |
+| Assurance | proposée quand le croupier montre un **As**, jusqu'à la moitié de la mise, payée **2:1** si le croupier a effectivement blackjack |
+| Timers | 30 s pour miser, 30 s par tour, 12 s pour l'assurance (refus par défaut) |
 | Jetons | cave de départ choisie par le chef de table avant la 1ère manche, **pas de reset automatique** |
 
 ## 🪙 Cave de départ & re-cave

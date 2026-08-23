@@ -32,6 +32,13 @@ const els = {
   betAmount: document.getElementById('bet-amount'),
   betConfirm: document.getElementById('bet-confirm'),
   betClear: document.getElementById('bet-clear'),
+  betAllin: document.getElementById('bet-allin'),
+  insurancePanel: document.getElementById('insurance-panel'),
+  insuranceText: document.getElementById('insurance-text'),
+  insuranceActions: document.getElementById('insurance-actions'),
+  insuranceNo: document.getElementById('insurance-no'),
+  insuranceYes: document.getElementById('insurance-yes'),
+  insuranceTimerFill: document.querySelector('#insurance-timer > i'),
   handsPanel: document.getElementById('hands-panel'),
   myHands: document.getElementById('my-hands'),
   configPanel: document.getElementById('config-panel'),
@@ -187,6 +194,50 @@ els.betClear.addEventListener('click', () => {
   sfx.click();
   renderBet(findMe());
 });
+
+els.betAllin.addEventListener('click', () => {
+  const me = findMe();
+  if (!me || me.balance < state.minBet) return;
+  pendingBet = me.balance;
+  sfx.chip();
+  renderBet(me);
+});
+
+/* ------------------------------- assurance -------------------------------- */
+
+els.insuranceNo.addEventListener('click', () => {
+  sfx.click();
+  socket.emit('player:insurance', { amount: 0 }, (res) => {
+    if (res && !res.ok) showToast(res.message);
+  });
+});
+
+els.insuranceYes.addEventListener('click', () => {
+  const me = findMe();
+  if (!me) return;
+  const max = Math.floor(me.hands[0].bet / 2);
+  sfx.chip();
+  socket.emit('player:insurance', { amount: max }, (res) => {
+    if (res && !res.ok) showToast(res.message);
+  });
+});
+
+function renderInsurance(me) {
+  const show = state.phase === 'insurance' && me.inRound;
+  els.insurancePanel.hidden = !show;
+  if (!show) return;
+  const max = Math.floor(me.hands[0].bet / 2);
+  if (!me.insuranceDecided) {
+    els.insuranceText.textContent =
+      `Il peut avoir Blackjack. Assurer jusqu'à ${fmt.format(max)} jetons (payé 2:1 si c'est le cas) ?`;
+    els.insuranceActions.hidden = false;
+  } else {
+    els.insuranceText.textContent = me.insuranceBet > 0
+      ? `Assurance de ${fmt.format(me.insuranceBet)} prise. En attente des autres…`
+      : 'Assurance refusée. En attente des autres…';
+    els.insuranceActions.hidden = true;
+  }
+}
 
 els.betConfirm.addEventListener('click', () => {
   if (pendingBet <= 0) return;
@@ -391,6 +442,7 @@ function render() {
 
   renderConfig(me);
   renderRebuy(me);
+  renderInsurance(me);
 
   const showHands = me.inRound && me.hands.length > 0 && me.hands[0].cards.length > 0;
   els.handsPanel.hidden = !showHands;
@@ -434,6 +486,8 @@ function render() {
     } else {
       badge = ['betting', 'Fais ton jeu 💰'];
     }
+  } else if (state.phase === 'insurance') {
+    badge = me.inRound ? ['betting', 'Assurance 🂡'] : ['waiting', 'En attente'];
   } else if (state.phase === 'playing') {
     if (!me.inRound) {
       msg = 'Tu ne joues pas cette manche.\nTu pourras miser à la prochaine !';
@@ -515,6 +569,9 @@ function renderBet(me) {
   document.querySelectorAll('.chip[data-chip]').forEach((chip) => {
     chip.disabled = pendingBet + Number(chip.dataset.chip) > me.balance;
   });
+  els.betAllin.disabled = me.balance < state.minBet || pendingBet === me.balance;
+  els.betAllin.textContent = pendingBet === me.balance && me.balance >= state.minBet
+    ? '🚀 All-in ✓' : `🚀 All-in (${fmt.format(me.balance)})`;
 }
 
 function renderHands(me) {
@@ -712,6 +769,8 @@ function playFeedback(me, myTurn) {
 
 /* ------------------------------ timer (rAF) ------------------------------ */
 
+const INSURANCE_DURATION_MS = 12000;
+
 function tick() {
   const me = findMe();
   let endsAt = null;
@@ -729,6 +788,12 @@ function tick() {
   } else {
     els.meTimer.hidden = true;
   }
+
+  if (state && me && state.phase === 'insurance' && me.inRound && state.insuranceEndsAt) {
+    const rem = clock.remaining(state.insuranceEndsAt);
+    els.insuranceTimerFill.style.width = `${(rem / INSURANCE_DURATION_MS) * 100}%`;
+  }
+
   requestAnimationFrame(tick);
 }
 requestAnimationFrame(tick);

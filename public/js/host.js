@@ -122,6 +122,10 @@ function render() {
   if (state.phase === 'playing' && current) {
     const handNote = current.hands.length > 1 ? ` (main ${state.current.handIndex + 1})` : '';
     els.phaseMsg.textContent = `🎯 ${current.name}${handNote}, à toi de jouer !`;
+  } else if (state.phase === 'insurance') {
+    const inRound = state.players.filter((p) => p.inRound);
+    const decided = inRound.filter((p) => p.insuranceDecided).length;
+    els.phaseMsg.textContent = `🂡 Le croupier montre un As — assurance (${decided}/${inRound.length} décidé${decided > 1 ? 's' : ''})`;
   } else if (state.rebuyRequest) {
     const r = state.rebuyRequest;
     els.phaseMsg.textContent = `🪙 ${r.playerName} demande une re-cave de ${fmt.format(r.amount)} — ${r.approved}/${r.total} ont accepté (unanimité requise)`;
@@ -238,6 +242,9 @@ function renderSeat(p) {
     if (p.betPlaced) badge = ['betting', 'Mise placée ✓'];
     else if (p.balance < state.minBet) badge = ['lose', 'À sec 🪙'];
     else badge = ['betting', 'Choisit sa mise…'];
+  } else if (state.phase === 'insurance' && p.inRound) {
+    if (!p.insuranceDecided) badge = ['betting', '🂡 Décide…'];
+    else badge = p.insuranceBet > 0 ? ['betting', `Assuré ${fmt.format(p.insuranceBet)}`] : ['waiting', 'Sans assurance'];
   } else if (p.isTurn) {
     badge = ['turn', '🎯 Tour en cours'];
   } else if (state.phase === 'results' && p.inRound) {
@@ -378,6 +385,9 @@ function tick() {
     } else if (state.phase === 'results' && state.resultsEndsAt) {
       endsAt = state.resultsEndsAt;
       duration = 6000;
+    } else if (state.phase === 'insurance' && state.insuranceEndsAt) {
+      endsAt = state.insuranceEndsAt;
+      duration = 12000;
     }
     if (endsAt) {
       const rem = clock.remaining(endsAt);

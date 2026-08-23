@@ -24,6 +24,7 @@ const DEFAULTS = {
   minBet: 10,
   betTimeMs: 30000,
   turnTimeMs: 30000,
+  insuranceTimeMs: 12000,
   resultsTimeMs: 6000,
   dealerDrawDelayMs: 900,
   maxPlayers: 7,
@@ -88,8 +89,9 @@ class Game {
     this.betEndsAt = null;
     this.turnEndsAt = null;
     this.resultsEndsAt = null;
+    this.insuranceEndsAt = null;
     this.roundNumber = 0;
-    this.timers = { bet: null, turn: null, dealer: null, results: null };
+    this.timers = { bet: null, turn: null, dealer: null, results: null, insurance: null };
     // Demande de re-cave en attente : { playerId, pending:Set, approved:Set }
     this.rebuyRequest = null;
     // Mode de jeu : 'table' (écran commun) ou 'phones' (chacun son écran).
@@ -124,6 +126,9 @@ class Game {
       betPlaced: false,
       inRound: false,
       presetAction: null, // action programmée à l'avance pour le prochain tour
+      insuranceBet: 0,
+      insuranceDecided: false,
+      insuranceResult: null, // 'win' | 'lose' | null (affichage résultats)
       lastNet: 0,      // gain/perte de la dernière manche (affichage table)
       joinedAt: Date.now(),
     };
@@ -194,6 +199,9 @@ class Game {
       p.inRound = false;
       p.lastNet = 0;
       p.presetAction = null;
+      p.insuranceBet = 0;
+      p.insuranceDecided = false;
+      p.insuranceResult = null;
       // Pas de re-cave automatique : un joueur à sec doit la demander
       // aux autres (unanimité) ou quitter la table.
     }
@@ -265,9 +273,26 @@ class Game {
     for (const p of inRound) {
       const h = p.hands[0];
       h.status = isNaturalBlackjack(h.cards) ? 'blackjack' : 'playing';
+      p.insuranceBet = 0;
+      p.insuranceDecided = false;
+      p.insuranceResult = null;
     }
 
-    // Blackjack du croupier : la manche se règle immédiatement.
+    // Carte visible du croupier = As : l'assurance se propose avant de
+    // regarder la carte cachée (sinon la décision ne serait plus à l'aveugle).
+    if (this.dealer.cards[0].rank === 'A') {
+      this.openInsurance();
+      return;
+    }
+    this.resolveDealerBlackjackCheck(inRound);
+  }
+
+  /**
+   * Vérifie le blackjack du croupier (règlement immédiat si oui, sinon
+   * lancement des tours) — appelé directement si le croupier ne montre pas
+   * d'As, ou après la fenêtre d'assurance sinon.
+   */
+  resolveDealerBlackjackCheck(inRound) {
     if (isNaturalBlackjack(this.dealer.cards)) {
       this.dealer.revealed = true;
       for (const p of inRound) {
@@ -277,10 +302,64 @@ class Game {
       this.settle();
       return;
     }
-
     this.buildTurnQueue();
     this.push();
     this.nextTurn();
+  }
+
+  // ---------------------------------------------------------------- assurance
+
+  openInsurance() {
+    this.phase = 'insurance';
+    this.insuranceEndsAt = Date.now() + this.opts.insuranceTimeMs;
+    this.push();
+    this.timers.insurance = setTimeout(() => this.closeInsurance(), this.opts.insuranceTimeMs);
+  }
+
+  /** Mise d'assurance entre 0 et la moitié de la mise initiale du joueur. */
+  placeInsurance(token, amount) {
+    if (this.phase !== 'insurance') throw new Error('Les assurances ne sont pas ouvertes.');
+    const p = this.players.get(token);
+    if (!p || !p.inRound) throw new Error('Tu ne joues pas cette manche.');
+    if (p.insuranceDecided) throw new Error('Décision déjà prise.');
+    const maxInsurance = Math.floor(p.hands[0].bet / 2);
+    const bet = Math.floor(Number(amount));
+    if (!Number.isFinite(bet) || bet < 0 || bet > maxInsurance) {
+      throw new Error(`Assurance entre 0 et ${maxInsurance} jetons.`);
+    }
+    if (bet > p.balance) throw new Error('Solde insuffisant.');
+    p.balance -= bet;
+    p.insuranceBet = bet;
+    p.insuranceDecided = true;
+    const deciding = [...this.players.values()].filter((x) => x.inRound && x.connected);
+    if (deciding.length > 0 && deciding.every((x) => x.insuranceDecided)) {
+      clearTimeout(this.timers.insurance);
+      this.closeInsurance();
+    } else {
+      this.push();
+    }
+  }
+
+  closeInsurance() {
+    if (this.phase !== 'insurance') return;
+    this.insuranceEndsAt = null;
+    const inRound = [...this.players.values()].filter((p) => p.inRound);
+    for (const p of inRound) p.insuranceDecided = true; // indécis = assurance refusée
+    this.phase = 'playing';
+
+    if (isNaturalBlackjack(this.dealer.cards)) {
+      for (const p of inRound) {
+        if (p.insuranceBet > 0) {
+          p.balance += p.insuranceBet * 3; // mise rendue + gain payé 2:1
+          p.insuranceResult = 'win';
+        }
+      }
+    } else {
+      for (const p of inRound) {
+        if (p.insuranceBet > 0) p.insuranceResult = 'lose'; // mise déjà déduite, perdue
+      }
+    }
+    this.resolveDealerBlackjackCheck(inRound);
   }
 
   buildTurnQueue() {
@@ -500,7 +579,11 @@ class Game {
 
     for (const p of this.players.values()) {
       if (!p.inRound) continue;
+      // L'assurance a déjà été réglée pendant la phase dédiée (balance mise
+      // à jour) — on l'ajoute simplement au net affiché de la manche.
       let net = 0;
+      if (p.insuranceResult === 'win') net += p.insuranceBet * 2;
+      else if (p.insuranceResult === 'lose') net -= p.insuranceBet;
       for (const h of p.hands) {
         const total = handValue(h.cards).total;
         if (h.status === 'blackjack') {
@@ -546,6 +629,7 @@ class Game {
     this.betEndsAt = null;
     this.turnEndsAt = null;
     this.resultsEndsAt = null;
+    this.insuranceEndsAt = null;
   }
 
   // ---------------------------------------------------------------- mode de jeu
@@ -683,6 +767,7 @@ class Game {
       betEndsAt: this.betEndsAt,
       turnEndsAt: this.turnEndsAt,
       resultsEndsAt: this.resultsEndsAt,
+      insuranceEndsAt: this.insuranceEndsAt,
       shoeCount: this.shoe.length,
       minBet: this.opts.minBet,
       serverNow: Date.now(),
@@ -721,6 +806,9 @@ class Game {
           inRound: p.inRound,
           betPlaced: p.betPlaced,
           presetAction: p.presetAction,
+          insuranceBet: p.insuranceBet,
+          insuranceDecided: p.insuranceDecided,
+          insuranceResult: p.insuranceResult,
           lastNet: p.lastNet,
           isTurn: !!(this.current && this.current.playerId === p.id),
           turnHandIndex: this.current && this.current.playerId === p.id ? this.current.handIndex : null,

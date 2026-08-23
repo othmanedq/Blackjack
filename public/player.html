@@ -107,8 +107,20 @@
       </div>
       <div class="bet-actions">
         <button class="ghost-btn" id="bet-clear">Effacer</button>
+        <button class="ghost-btn allin-btn" id="bet-allin">🚀 All-in</button>
         <button class="cta" id="bet-confirm" disabled>Miser ✓</button>
       </div>
+    </div>
+
+    <!-- Assurance (le croupier montre un As) -->
+    <div class="panel insurance" id="insurance-panel" hidden>
+      <p class="panel-title">🂡 Le croupier montre un As</p>
+      <p class="insurance-text" id="insurance-text"></p>
+      <div class="insurance-actions" id="insurance-actions">
+        <button type="button" class="ghost-btn" id="insurance-no">Non merci</button>
+        <button type="button" class="cta" id="insurance-yes">Assurer</button>
+      </div>
+      <div class="timerbar" id="insurance-timer"><i></i></div>
     </div>
 
     <!-- Mains du joueur -->

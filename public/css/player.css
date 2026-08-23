@@ -159,13 +159,16 @@ html, body {
 .chip-row { display: flex; justify-content: center; gap: 9px; flex-wrap: wrap; }
 .chip:disabled { opacity: 0.35; pointer-events: none; }
 .bet-actions {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-areas: "clear allin" "confirm confirm";
   align-items: center;
   margin-top: 14px;
   gap: 10px;
 }
-.bet-actions .cta { flex: 1; }
+#bet-clear { grid-area: clear; }
+#bet-allin { grid-area: allin; }
+#bet-confirm { grid-area: confirm; }
 .ghost-btn {
   background: none;
   border: 1px solid rgba(245,233,200,0.25);
@@ -176,6 +179,23 @@ html, body {
   font-weight: 600;
   cursor: pointer;
 }
+.allin-btn {
+  border-color: rgba(212,175,55,0.45);
+  color: var(--gold-bright);
+}
+.allin-btn:disabled { opacity: 0.4; pointer-events: none; }
+
+/* --- assurance --- */
+.insurance { border-color: rgba(212,175,55,0.55); text-align: center; }
+.insurance-text {
+  font-size: 0.92rem;
+  color: rgba(245,233,200,0.85);
+  line-height: 1.4;
+  margin-bottom: 12px;
+}
+.insurance-actions { display: flex; gap: 10px; }
+.insurance-actions button { flex: 1; }
+.insurance #insurance-timer { margin-top: 12px; }
 
 /* --- mes mains */
 .my-hands { display: flex; flex-direction: column; gap: 8px; }
