@@ -133,6 +133,75 @@ console.log('✓ valeurs de mains, blackjack naturel, sabot 6 jeux');
   console.log('✓ un joueur déconnecté reste identifiable par IP pour proposer une reprise');
 })();
 
+// ------------------------------------------------------------- pré-choix
+
+(() => {
+  // Alice (main déjà forte) programme "stand" pendant que c'est au tour de Bob.
+  const game = new Game(() => {}, { betTimeMs: 100000, turnTimeMs: 100000 });
+  const alice = game.addPlayer({ token: 'a', name: 'Alice' });
+  const bob = game.addPlayer({ token: 'b', name: 'Bob' });
+  game.phase = 'playing';
+  alice.inRound = true;
+  alice.hands = [{ cards: [c('K'), c('9')], bet: 100, status: 'playing', doubled: false }];
+  bob.inRound = true;
+  bob.hands = [{ cards: [c('5'), c('4')], bet: 100, status: 'playing', doubled: false }];
+  game.current = { playerId: 'b', handIndex: 0 };
+
+  assert.throws(() => game.setPresetAction('b', 'stand'), /ton tour/i, 'pas de pré-choix pendant son propre tour');
+  game.setPresetAction('a', 'stand');
+  assert.strictEqual(alice.presetAction, 'stand');
+
+  const pub = game.publicState();
+  assert.strictEqual(pub.players.find((p) => p.id === 'a').presetAction, 'stand', 'visible dans l\'état public');
+
+  // Bob termine son tour → le pré-choix d'Alice s'exécute automatiquement.
+  game.stand('b');
+  assert.strictEqual(alice.hands[0].status, 'stand', 'le stand programmé s\'est exécuté sans intervention');
+  assert.strictEqual(alice.presetAction, null, 'le pré-choix est consommé après exécution');
+  console.log('✓ un stand programmé s\'exécute automatiquement dès que le tour arrive');
+
+  // Un "hit" programmé s'exécute une fois, puis rend la main au joueur.
+  const game2 = new Game(() => {}, { betTimeMs: 100000, turnTimeMs: 100000 });
+  const carl = game2.addPlayer({ token: 'c', name: 'Carl' });
+  const dan = game2.addPlayer({ token: 'd', name: 'Dan' });
+  game2.phase = 'playing';
+  carl.inRound = true;
+  carl.hands = [{ cards: [c('5'), c('4')], bet: 100, status: 'playing', doubled: false }]; // total 9
+  dan.inRound = true;
+  dan.hands = [{ cards: [c('9'), c('8')], bet: 100, status: 'playing', doubled: false }];
+  game2.current = { playerId: 'd', handIndex: 0 };
+  game2.shoe = [c('2')]; // carte tirée par le hit programmé de Carl
+  game2.setPresetAction('c', 'hit');
+
+  game2.stand('d');
+  assert.strictEqual(carl.hands[0].cards.length, 3, 'le hit programmé a bien tiré une carte');
+  assert.strictEqual(carl.hands[0].status, 'playing', 'la main reste jouable après un hit (total 11)');
+  assert.strictEqual(carl.presetAction, null);
+  assert.deepStrictEqual(game2.current, { playerId: 'c', handIndex: 0 }, 'c\'est maintenant vraiment le tour de Carl');
+  assert.ok(game2.turnEndsAt, 'un timer de tour normal reprend après le hit programmé');
+  console.log('✓ un hit programmé s\'exécute une fois puis repasse en main normale');
+
+  // Un pré-choix devenu invalide (ex. double sans solde suffisant) ne bloque
+  // pas la table : on retombe sur un tour manuel classique.
+  const game3 = new Game(() => {}, { betTimeMs: 100000, turnTimeMs: 100000 });
+  const eve = game3.addPlayer({ token: 'e', name: 'Eve' });
+  const finn = game3.addPlayer({ token: 'f', name: 'Finn' });
+  game3.phase = 'playing';
+  eve.inRound = true;
+  eve.balance = 0; // solde insuffisant pour honorer le double programmé
+  eve.hands = [{ cards: [c('5'), c('4')], bet: 100, status: 'playing', doubled: false }];
+  finn.inRound = true;
+  finn.hands = [{ cards: [c('9'), c('8')], bet: 100, status: 'playing', doubled: false }];
+  game3.current = { playerId: 'f', handIndex: 0 };
+  game3.setPresetAction('e', 'double');
+
+  game3.stand('f');
+  assert.deepStrictEqual(game3.current, { playerId: 'e', handIndex: 0 });
+  assert.strictEqual(eve.hands[0].status, 'playing', 'la main reste jouable, pas de blocage de la table');
+  assert.ok(game3.turnEndsAt, 'un tour manuel normal est proposé à la place');
+  console.log('✓ un pré-choix devenu invalide retombe sur un tour manuel sans bloquer la table');
+})();
+
 // ---------------------------------------------------------------------- split
 
 (() => {

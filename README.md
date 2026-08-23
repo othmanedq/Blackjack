@@ -58,7 +58,8 @@ Cette proposition n'est offerte que dans les 20 minutes suivant la déconnexion,
 - Interface **mobile-first**, sans scroll parasite.
 - Lobby : pseudo + avatar + couleur.
 - Mise avec des **jetons tactiles** (10 / 25 / 50 / 100 / 500).
-- Gros boutons **Hit / Stand / Double / Split**, actifs uniquement à son tour (vibration du téléphone quand c'est à soi).
+- Gros boutons **Hit / Stand / Double / Split**, actifs à son tour (vibration du téléphone quand c'est à soi).
+- **Pré-choix** : en attendant son tour, on peut déjà taper l'action voulue (ex. Stand sur une main forte) — elle se joue automatiquement dès que le tour arrive vraiment, sans avoir à surveiller l'écran. Retaper le même bouton annule le pré-choix ; un simple badge (« 🕐 Stand programmé ») le montre aux autres.
 - Reconnexion automatique : en cas de rafraîchissement, le joueur retrouve sa place et son solde.
 
 ## 🃏 Règles implémentées

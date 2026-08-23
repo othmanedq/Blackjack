@@ -179,6 +179,7 @@ function showBadge(el, cls, text) {
   el.textContent = text;
 }
 
+const PRESET_LABELS = { hit: 'Hit', stand: 'Stand', double: 'Double', split: 'Split' };
 const STATUS_LABELS = {
   waiting: ['waiting', 'En attente'],
   playing: ['waiting', 'En attente'],
@@ -256,6 +257,12 @@ function renderSeat(p) {
   b.className = `badge ${badge[0]}`;
   b.textContent = badge[1];
   statusEl.appendChild(b);
+  if (p.presetAction && !p.isTurn && state.phase === 'playing') {
+    const pre = document.createElement('span');
+    pre.className = 'badge waiting preset-badge';
+    pre.textContent = `🕐 ${PRESET_LABELS[p.presetAction]} programmé`;
+    statusEl.appendChild(pre);
+  }
 
   // Mains
   const handsEl = seat.querySelector('.seat-hands');

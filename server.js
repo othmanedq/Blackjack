@@ -239,6 +239,15 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Pré-choix : programme l'action jouée automatiquement dès que le tour arrive.
+  socket.on('player:setPreset', ({ action } = {}, ack) => {
+    respond(ack, () => {
+      const token = socketPlayer.get(socket.id);
+      if (!token) throw new Error('Rejoins la partie d’abord.');
+      game.setPresetAction(token, action ?? null);
+    });
+  });
+
   socket.on('disconnect', () => {
     const token = socketPlayer.get(socket.id);
     socketPlayer.delete(socket.id);

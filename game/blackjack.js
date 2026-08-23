@@ -302,17 +302,77 @@ class Game {
     // Prochaine main encore en jeu (les splits ajoutent des entrées à la volée).
     this.buildTurnQueue();
     const next = this.turnQueue[0] || null;
-    this.current = next;
     if (!next) {
+      this.current = null;
       this.turnEndsAt = null;
       this.playDealer();
       return;
     }
+    // Un pré-choix ne s'applique qu'à la toute première décision du joueur
+    // ce tour-ci (main d'index 0) — les mains issues d'un split restent
+    // toujours manuelles.
+    const p = this.players.get(next.playerId);
+    if (next.handIndex === 0 && p && p.presetAction) {
+      const action = p.presetAction;
+      p.presetAction = null;
+      this.current = next;
+      this.runPresetAction(next.playerId, action);
+      return;
+    }
+    this.current = next;
     this.turnEndsAt = Date.now() + this.opts.turnTimeMs;
     this.timers.turn = setTimeout(() => {
       // Temps écoulé : stand automatique.
       if (this.current) this.stand(this.current.playerId, true);
     }, this.opts.turnTimeMs);
+    this.push();
+  }
+
+  /**
+   * Exécute le pré-choix d'un joueur dès que son tour arrive. Chaque action
+   * (hit/stand/double/split) gère déjà son propre enchaînement (nextTurn,
+   * ou un nouveau timer si la main reste jouable) — on ne fait que la
+   * déclencher à sa place. Si elle n'est plus valide (cas rare), on retombe
+   * simplement sur un tour manuel normal plutôt que de bloquer la table.
+   */
+  runPresetAction(token, action) {
+    try {
+      if (action === 'hit') this.hit(token);
+      else if (action === 'stand') this.stand(token);
+      else if (action === 'double') this.double(token);
+      else if (action === 'split') this.split(token);
+      else throw new Error('Pré-choix invalide.');
+    } catch {
+      this.turnEndsAt = Date.now() + this.opts.turnTimeMs;
+      clearTimeout(this.timers.turn);
+      this.timers.turn = setTimeout(() => {
+        if (this.current) this.stand(this.current.playerId, true);
+      }, this.opts.turnTimeMs);
+      this.push();
+    }
+  }
+
+  /**
+   * Programme (ou annule, avec action=null) l'action que ce joueur veut
+   * jouer dès que son tour arrivera, pendant qu'il patiente. Uniquement
+   * avant que ce ne soit effectivement son tour.
+   */
+  setPresetAction(token, action) {
+    const p = this.players.get(token);
+    if (!p) throw new Error('Joueur inconnu.');
+    if (action !== null && !['hit', 'stand', 'double', 'split'].includes(action)) {
+      throw new Error('Action invalide.');
+    }
+    if (this.phase !== 'playing') {
+      throw new Error('Le pré-choix n\'est possible que pendant une manche en cours.');
+    }
+    if (!p.inRound || !p.hands[0] || p.hands[0].status !== 'playing') {
+      throw new Error('Aucune main en attente pour ce joueur.');
+    }
+    if (this.current && this.current.playerId === token) {
+      throw new Error('C\'est ton tour : joue directement.');
+    }
+    p.presetAction = action;
     this.push();
   }
 
@@ -660,6 +720,7 @@ class Game {
           connected: p.connected,
           inRound: p.inRound,
           betPlaced: p.betPlaced,
+          presetAction: p.presetAction,
           lastNet: p.lastNet,
           isTurn: !!(this.current && this.current.playerId === p.id),
           turnHandIndex: this.current && this.current.playerId === p.id ? this.current.handIndex : null,

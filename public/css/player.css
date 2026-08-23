@@ -297,6 +297,20 @@ html, body {
 .center-msg.win { color: var(--win); }
 .center-msg.lose { color: var(--lose); }
 
+/* --- pré-choix (programmer un coup pendant l'attente) --- */
+.preset-hint {
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--gold-bright);
+  padding: 2px 8px 6px;
+}
+.actions.preset-mode .action-btn { opacity: 0.62; }
+.actions.preset-mode .action-btn.armed {
+  opacity: 1;
+  box-shadow: 0 0 0 3px rgba(243, 216, 120, 0.75), 0 5px 14px rgba(0,0,0,0.45);
+}
+
 /* --- boutons d'action --- */
 .actions {
   width: 100%;

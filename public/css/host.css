@@ -130,6 +130,7 @@ body {
 }
 .seat.disconnected { opacity: 0.45; filter: grayscale(0.6); }
 
+.seat-status { display: flex; flex-wrap: wrap; gap: 6px; }
 .seat-head { display: flex; align-items: center; gap: 9px; }
 .seat-avatar {
   width: 38px;

@@ -4,6 +4,7 @@
 
 const socket = io();
 
+const ACTION_LABELS = { hit: 'Hit', stand: 'Stand', double: 'Double', split: 'Split' };
 const AVATARS = ['🦁', '🦊', '🐼', '🐸', '🦅', '🐙', '🦈', '🐯'];
 const COLORS = ['#f39c12', '#e74c3c', '#9b59b6', '#3498db', '#1abc9c', '#2ecc71', '#e91e8c', '#95a5a6'];
 
@@ -48,6 +49,7 @@ const els = {
   phoneStart: document.getElementById('phone-start'),
   centerMsg: document.getElementById('center-msg'),
   actions: document.getElementById('actions'),
+  presetHint: document.getElementById('preset-hint'),
   toast: document.getElementById('toast'),
 };
 
@@ -333,10 +335,27 @@ els.phoneStart.addEventListener('click', () => {
 
 /* -------------------------------- actions -------------------------------- */
 
+/* Pendant l'attente, une main encore jouable peut se piloter à l'avance :
+   l'action choisie s'exécute d'elle-même dès que le tour arrive vraiment. */
+function isPresetMode(me) {
+  return !!(
+    state && me && !me.isTurn && state.phase === 'playing' &&
+    me.inRound && me.hands[0] && me.hands[0].status === 'playing'
+  );
+}
+
 els.actions.querySelectorAll('.action-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
     const type = btn.dataset.action;
     sfx.click();
+    const me = findMe();
+    if (isPresetMode(me)) {
+      const next = me.presetAction === type ? null : type; // re-cliquer annule
+      socket.emit('player:setPreset', { action: next }, (res) => {
+        if (res && !res.ok) showToast(res.message);
+      });
+      return;
+    }
     socket.emit('player:action', { type }, (res) => {
       if (!res.ok) showToast(res.message);
     });
@@ -443,12 +462,28 @@ function render() {
   els.centerMsg.textContent = msg;
   els.centerMsg.className = `center-msg ${msgCls}`;
 
-  // Boutons actifs uniquement à mon tour
+  // Boutons actifs à mon tour — ou en pré-choix pendant que j'attends.
   const canAct = !!activeHand;
-  els.actions.querySelector('[data-action="hit"]').disabled = !canAct;
-  els.actions.querySelector('[data-action="stand"]').disabled = !canAct;
-  els.actions.querySelector('[data-action="double"]').disabled = !canAct || !activeHand.canDouble;
-  els.actions.querySelector('[data-action="split"]').disabled = !canAct || !activeHand.canSplit;
+  const presetMode = !canAct && isPresetMode(me);
+  const presetHand = presetMode ? me.hands[0] : null;
+  const btnHit = els.actions.querySelector('[data-action="hit"]');
+  const btnStand = els.actions.querySelector('[data-action="stand"]');
+  const btnDouble = els.actions.querySelector('[data-action="double"]');
+  const btnSplit = els.actions.querySelector('[data-action="split"]');
+
+  btnHit.disabled = !canAct && !presetMode;
+  btnStand.disabled = !canAct && !presetMode;
+  btnDouble.disabled = canAct ? !activeHand.canDouble : !presetMode || !presetHand.canDouble;
+  btnSplit.disabled = canAct ? !activeHand.canSplit : !presetMode || !presetHand.canSplit;
+
+  els.actions.classList.toggle('preset-mode', presetMode);
+  els.actions.querySelectorAll('.action-btn').forEach((btn) => {
+    btn.classList.toggle('armed', presetMode && me.presetAction === btn.dataset.action);
+  });
+  els.presetHint.hidden = !presetMode;
+  els.presetHint.textContent = me.presetAction
+    ? `🕐 Programmé : ${ACTION_LABELS[me.presetAction]} — retape pour annuler`
+    : '🕐 Pré-choisis ton coup, il s\'exécutera dès ton tour';
 
   playFeedback(me, myTurn);
   prevMe = JSON.parse(JSON.stringify(me));
@@ -611,7 +646,9 @@ function renderTable(me) {
     const [cls, txt] = otherStatusBadge(p);
     const badge = row.querySelector('.badge');
     badge.className = `badge ${cls}`;
-    badge.textContent = txt;
+    const preset = p.presetAction && !p.isTurn && state.phase === 'playing'
+      ? ` 🕐 ${ACTION_LABELS[p.presetAction]}` : '';
+    badge.textContent = txt + preset;
 
     // Toutes les mains à plat (les ids de cartes restent uniques après split)
     const cards = p.hands.flatMap((h) => h.cards);
