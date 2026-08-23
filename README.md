@@ -2,7 +2,7 @@
 
 Jeu de **Blackjack multijoueur local en temps réel** : l'ordinateur est la table de casino, les smartphones sont les manettes. Tout se joue sur le même réseau Wi-Fi, sans internet.
 
-## 🚀 Démarrage rapide
+## Démarrage rapide
 
 ```bash
 # 1. Installer les dépendances
@@ -19,23 +19,23 @@ Puis :
 3. Chaque joueur choisit un **pseudo, un avatar et une couleur**, puis prend place.
 4. L'hôte clique sur **« Lancer la manche »** : les joueurs misent depuis leur téléphone, les cartes sont distribuées, et c'est parti !
 
-> 💡 `npm run dev` relance automatiquement le serveur à chaque modification (`node --watch`).
-> 💡 Port personnalisé : `PORT=8080 npm start`. Adresse forcée : `HOST_IP=192.168.1.42 npm start`.
-> 🧪 Test de la logique de jeu : `npm test`.
+> `npm run dev` relance automatiquement le serveur à chaque modification (`node --watch`).
+> Port personnalisé : `PORT=8080 npm start`. Adresse forcée : `HOST_IP=192.168.1.42 npm start`.
+> Test de la logique de jeu : `npm test`.
 
-## 🎭 Deux façons de jouer — un choix obligatoire avant de commencer
+## Deux façons de jouer — un choix obligatoire avant de commencer
 
-Avant de lancer la toute première manche, le **chef de table 👑** (le premier joueur connecté) doit choisir un mode sur son téléphone — ou l'écran table s'il est ouvert. Ce choix ne peut plus être changé une fois la partie commencée.
+Avant de lancer la toute première manche, le **chef de table** (le premier joueur connecté) doit choisir un mode sur son téléphone — ou l'écran table s'il est ouvert. Ce choix ne peut plus être changé une fois la partie commencée.
 
-**🖥️ Tous sur un écran** : un ordinateur affiche la table (`/host`) — croupier, mains de tous les joueurs, QR code — et chaque téléphone sert uniquement de manette (pas de panneau croupier/autres joueurs sur mobile). C'est l'écran de la table qui a le bouton « Lancer la manche ».
+**Tous sur un écran** : un ordinateur affiche la table (`/host`) — croupier, mains de tous les joueurs, QR code — et chaque téléphone sert uniquement de manette (pas de panneau croupier/autres joueurs sur mobile). C'est l'écran de la table qui a le bouton « Lancer la manche ».
 
-**📱 Chacun son écran** : aucun ordinateur nécessaire, personne n'a besoin de le regarder. Chaque téléphone affiche, en plus de sa propre main, le panneau **« La table »** : les cartes du croupier (la 2ᵉ reste face cachée jusqu'à son tour) et les mains, scores et statuts de tous les autres joueurs — repliable d'un tap pour une manette plus compacte. Le chef de table a le bouton « Lancer la manche » directement sur son téléphone.
+**Chacun son écran** : aucun ordinateur nécessaire, personne n'a besoin de le regarder. Chaque téléphone affiche, en plus de sa propre main, le panneau **« La table »** : les cartes du croupier (la 2ᵉ reste face cachée jusqu'à son tour) et les mains, scores et statuts de tous les autres joueurs — repliable d'un tap pour une manette plus compacte. Le chef de table a le bouton « Lancer la manche » directement sur son téléphone.
 
-**🖥️📱 Les deux** : l'écran de la table fonctionne normalement ET chaque téléphone affiche en plus le panneau « La table » — le meilleur des deux mondes si un grand écran est disponible mais que tout le monde veut aussi suivre sur son téléphone.
+**Les deux** : l'écran de la table fonctionne normalement ET chaque téléphone affiche en plus le panneau « La table » — le meilleur des deux mondes si un grand écran est disponible mais que tout le monde veut aussi suivre sur son téléphone.
 
 Tant qu'aucun mode n'est choisi, le bouton de lancement reste verrouillé sur les deux écrans — impossible de démarrer sans que la table se soit mise d'accord.
 
-## 🔌 Reconnexion & reprise après déconnexion
+## Reconnexion & reprise après déconnexion
 
 Un joueur qui recharge la page ou perd le réseau quelques instants **retrouve automatiquement sa place** (même solde, même main en cours) dès que sa connexion revient — aucune action nécessaire.
 
@@ -46,7 +46,7 @@ Si son navigateur perd sa session (stockage effacé, autre onglet, changement de
 
 Cette proposition n'est offerte que dans les 20 minutes suivant la déconnexion, et un joueur déconnecté trop longtemps est de toute façon écarté de la table au lancement de la manche suivante.
 
-## 🎮 Fonctionnement
+## Fonctionnement
 
 ### L'hôte (ordinateur — écran de la table)
 - Main du **croupier** avec animations de distribution (la 2ᵉ carte reste cachée jusqu'au tour du croupier).
@@ -60,10 +60,20 @@ Cette proposition n'est offerte que dans les 20 minutes suivant la déconnexion,
 - Mise avec des **jetons tactiles** (10 / 25 / 50 / 100 / 500) ou en un tap avec **All-in** (tout le solde).
 - **Assurance** proposée automatiquement quand le croupier montre un As, jusqu'à la moitié de la mise.
 - Gros boutons **Hit / Stand / Double / Split**, actifs à son tour (vibration du téléphone quand c'est à soi).
-- **Pré-choix** : en attendant son tour, on peut déjà taper l'action voulue (ex. Stand sur une main forte) — elle se joue automatiquement dès que le tour arrive vraiment, sans avoir à surveiller l'écran. Retaper le même bouton annule le pré-choix ; un simple badge (« 🕐 Stand programmé ») le montre aux autres.
+- **Pré-choix** : en attendant son tour, on peut déjà taper l'action voulue (ex. Stand sur une main forte) — elle se joue automatiquement dès que le tour arrive vraiment, sans avoir à surveiller l'écran. Retaper le même bouton annule le pré-choix. **Ton intention reste secrète** : le serveur ne la transmet qu'à toi, elle n'apparaît ni sur les autres téléphones ni sur l'écran de la table.
+- **Donner des jetons** : entre deux manches, on peut transférer des jetons à un autre joueur de la table (choix du joueur, puis du montant).
 - Reconnexion automatique : en cas de rafraîchissement, le joueur retrouve sa place et son solde.
 
-## 🃏 Règles implémentées
+### Icônes plutôt qu'emojis
+
+Toute l'interface utilise des **icônes SVG dessinées à la main** (`public/js/icons.js`), pas d'emojis : le rendu est identique sur tous les téléphones et systèmes, alors qu'un emoji change de dessin d'un appareil à l'autre. Les avatars sont eux aussi des icônes (piques, cœur, carreau, trèfle, couronne, étoile, éclair, gemme), colorées avec la couleur choisie par le joueur. Seules les enseignes imprimées **sur les cartes** (♠ ♥ ♦ ♣) restent des caractères, puisque ce sont les cartes elles-mêmes.
+
+### Gestion de la table
+
+- **Exclure un joueur** : le **chef de table** peut exclure quelqu'un, uniquement entre deux manches (jamais en pleine main). Le joueur exclu peut revenir, mais comme un nouveau joueur — il ne récupère pas son ancien solde.
+- **Déconnexion** : un joueur déconnecté garde ses jetons. Au lancement de la manche suivante il quitte la table, mais son solde et son identité sont conservés « au vestiaire » : s'il revient, il retrouve **exactement ses jetons** (aucune remise à la cave de départ).
+
+## Règles implémentées
 
 | Règle | Détail |
 |---|---|
@@ -78,9 +88,9 @@ Cette proposition n'est offerte que dans les 20 minutes suivant la déconnexion,
 | Timers | 30 s pour miser, 30 s par tour, 12 s pour l'assurance (refus par défaut) |
 | Jetons | cave de départ choisie par le chef de table avant la 1ère manche, **pas de reset automatique** |
 
-## 🪙 Cave de départ & re-cave
+## Cave de départ & re-cave
 
-Avant de lancer la toute première manche, le **chef de table 👑** (ou l'écran table) choisit la cave de départ (100 à 10 000 jetons) — elle s'applique à tous les joueurs présents. Une fois la première manche lancée, ce réglage est **verrouillé** : les soldes vivent leur vie, sans reset automatique entre les manches.
+Avant de lancer la toute première manche, le **chef de table** (ou l'écran table) choisit la cave de départ (100 à 10 000 jetons) — elle s'applique à tous les joueurs présents. Une fois la première manche lancée, ce réglage est **verrouillé** : les soldes vivent leur vie, sans reset automatique entre les manches.
 
 Si un joueur se retrouve à sec (solde sous la mise minimum) :
 
@@ -91,7 +101,7 @@ Si un joueur se retrouve à sec (solde sous la mise minimum) :
 
 Un joueur qui se déconnecte pendant un vote ne le bloque pas — l'unanimité ne porte que sur les votants restants.
 
-## 🗂️ Structure du projet
+## Structure du projet
 
 ```
 Blackjack/
@@ -114,7 +124,7 @@ Blackjack/
 └── package.json
 ```
 
-## ☁️ Héberger en ligne (jouer sans être sur le même Wi-Fi)
+## Héberger en ligne (jouer sans être sur le même Wi-Fi)
 
 Le serveur se déploie tel quel sur n'importe quel hébergeur Node.js (Render, Railway, Fly.io…). Exemple avec le plan gratuit de [Render](https://render.com) :
 
@@ -125,14 +135,14 @@ Le serveur se déploie tel quel sur n'importe quel hébergeur Node.js (Render, R
 
 À savoir : il n'y a **qu'une seule table** par serveur — toute personne ayant l'URL rejoint la même partie, ne la partagez qu'à vos amis. Sur le plan gratuit de Render, le serveur s'endort après ~15 min d'inactivité (première connexion un peu lente, puis tout est normal) et la partie en cours est remise à zéro s'il s'endort.
 
-## 🔧 Notes techniques
+## Notes techniques
 
 - **État 100 % côté serveur** : les clients n'envoient que des intentions (`hit`, `stand`, `bet`…), le serveur valide tout et diffuse un état public — la carte cachée du croupier n'est jamais transmise avant sa révélation.
 - **Temps réel** : Socket.io (WebSocket) ; l'horloge des timers est synchronisée sur celle du serveur.
-- **Sons** générés en WebAudio (aucun fichier audio à charger) — bouton 🔊/🔇 sur la table.
+- **Sons** générés en WebAudio (aucun fichier audio à charger) — bouton de coupure du son sur la table.
 - **Zéro build** : vanilla JS + CSS, aucune étape de compilation. Les polices Google Fonts sont optionnelles (fallback système hors ligne).
 
-## 🛜 Dépannage
+## Dépannage
 
 - **Le téléphone n'arrive pas à se connecter** : vérifier que le téléphone et l'ordinateur sont sur le même Wi-Fi, et que le pare-feu de l'ordinateur autorise le port 3000 (ou celui choisi).
 - **Le QR code pointe vers la mauvaise IP** : si la machine a plusieurs interfaces réseau, le serveur prend la première IPv4 non interne — l'adresse exacte est aussi affichée dans le terminal au démarrage.

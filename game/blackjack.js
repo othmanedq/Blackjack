@@ -28,6 +28,7 @@ const DEFAULTS = {
   resultsTimeMs: 6000,
   dealerDrawDelayMs: 900,
   maxPlayers: 7,
+  maxParked: 64, // joueurs au vestiaire conservés (garde-fou mémoire)
   maxSplitHands: 4, // jusqu'à 3 splits (règle courante des casinos)
 };
 
@@ -84,6 +85,13 @@ class Game {
     this.dealer = { cards: [], revealed: false };
     /** @type {Map<string, object>} playerId -> player */
     this.players = new Map();
+    /**
+     * Vestiaire : joueurs sortis de la table parce qu'ils étaient déconnectés
+     * au lancement d'une manche. On conserve leur solde et leur identité pour
+     * qu'ils retrouvent tout en revenant (sinon leurs jetons seraient perdus).
+     * @type {Map<string, object>}
+     */
+    this.parked = new Map();
     this.turnQueue = []; // [{ playerId, handIndex }]
     this.current = null; // { playerId, handIndex } | null
     this.betEndsAt = null;
@@ -113,11 +121,25 @@ class Game {
     if (this.players.size >= this.opts.maxPlayers) {
       throw new Error('La table est pleine (7 joueurs max).');
     }
+    // Retour d'un joueur passé au vestiaire : il reprend sa place, son solde
+    // et son rang dans l'ordre du tour (joinedAt inchangé).
+    const parked = this.parked.get(token);
+    if (parked) {
+      this.parked.delete(token);
+      parked.connected = true;
+      parked.disconnectedAt = null;
+      if (name) parked.name = String(name).slice(0, 16);
+      if (color) parked.color = color;
+      if (avatar) parked.avatar = avatar;
+      this.players.set(token, parked);
+      this.push();
+      return parked;
+    }
     const player = {
       id: token,
       name: String(name || 'Joueur').slice(0, 16) || 'Joueur',
       color: color || '#facc15',
-      avatar: avatar || '🂡',
+      avatar: avatar || 'spade', // clé d'icône (voir public/js/icons.js)
       balance: this.opts.startingBalance,
       connected: true,
       ip: null,             // pour reconnaître un appareil qui revient sans son token
@@ -138,10 +160,37 @@ class Game {
   }
 
   /**
+   * Sort un joueur de la table sans perdre ses jetons : son solde et son
+   * identité partent au vestiaire, d'où addPlayer() les restaure s'il revient.
+   * Sans cela, un joueur déconnecté au lancement d'une manche repartirait de
+   * la cave de départ à son retour.
+   */
+  parkPlayer(token) {
+    const p = this.players.get(token);
+    if (!p) return;
+    this.players.delete(token);
+    this.cleanupRebuyAfterLeave(token);
+    p.hands = [];
+    p.betPlaced = false;
+    p.inRound = false;
+    p.lastNet = 0;
+    p.presetAction = null;
+    p.insuranceBet = 0;
+    p.insuranceDecided = false;
+    p.insuranceResult = null;
+    this.parked.set(token, p);
+    // Garde-fou mémoire : on ne conserve que les vestiaires les plus récents.
+    if (this.parked.size > this.opts.maxParked) {
+      const oldest = [...this.parked.values()]
+        .sort((a, b) => (a.disconnectedAt || 0) - (b.disconnectedAt || 0))[0];
+      if (oldest) this.parked.delete(oldest.id);
+    }
+  }
+
+  /**
    * Un joueur déconnecté n'est jamais supprimé immédiatement — il reste visible
    * (badge « Déconnecté ») jusqu'à son retour ou jusqu'au prochain lancement de
-   * manche (startBetting purge alors tous les joueurs encore déconnectés).
-   * Cette rémanence permet aussi à requestResume() de le retrouver par IP.
+   * manche, qui l'envoie au vestiaire (parkPlayer) en conservant ses jetons.
    */
   disconnectPlayer(token) {
     const p = this.players.get(token);
@@ -161,16 +210,15 @@ class Game {
   /**
    * Retrouve un joueur déconnecté récemment depuis la même adresse IP, pour
    * proposer à un nouvel onglet/appareil de reprendre sa place plutôt que
-   * d'en créer une nouvelle. Fenêtre de 20 minutes ; au-delà, on ne propose
-   * plus la reprise (l'entrée sera de toute façon purgée au prochain
-   * lancement de manche).
+   * d'en créer une nouvelle. Cherche à la table comme au vestiaire, dans une
+   * fenêtre de 20 minutes.
    */
   findResumeCandidate(ip, excludeToken) {
     if (!ip) return null;
     const RESUME_WINDOW_MS = 20 * 60 * 1000;
     const now = Date.now();
     let best = null;
-    for (const p of this.players.values()) {
+    for (const p of [...this.players.values(), ...this.parked.values()]) {
       if (p.id === excludeToken || p.connected || p.ip !== ip) continue;
       if (!p.disconnectedAt || now - p.disconnectedAt > RESUME_WINDOW_MS) continue;
       if (!best || p.disconnectedAt > best.disconnectedAt) best = p;
@@ -187,11 +235,11 @@ class Game {
       throw new Error('Choisissez un mode de jeu avant de lancer la partie.');
     }
     this.clearTimers();
-    // Purge des joueurs déconnectés et des soldes à zéro (re-crédités pour rejouer)
+    // Les joueurs déconnectés quittent la table mais gardent leurs jetons
+    // au vestiaire (ils les retrouvent en revenant).
     for (const [id, p] of this.players) {
       if (!p.connected) {
-        this.players.delete(id);
-        this.cleanupRebuyAfterLeave(id);
+        this.parkPlayer(id);
         continue;
       }
       p.hands = [];
@@ -723,6 +771,9 @@ class Game {
   /** Retire un joueur de la table (un joueur à sec n'est jamais en cours de manche). */
   kickPlayer(token) {
     this.players.delete(token);
+    // Une exclusion est définitive : pas de vestiaire, donc pas de retour
+    // avec l'ancien solde — il faudra revenir comme nouveau joueur.
+    this.parked.delete(token);
     this.cleanupRebuyAfterLeave(token);
     this.push();
   }
@@ -738,6 +789,52 @@ class Game {
     r.pending.delete(token);
     r.approved.delete(token);
     if (r.pending.size === 0) this.grantRebuy();
+  }
+
+  // ------------------------------------------------- dons & exclusion
+
+  /**
+   * Transfert de jetons d'un joueur vers un autre. Les mises en cours sont
+   * déjà déduites du solde, donc `balance` correspond bien aux jetons
+   * réellement disponibles — pas de double dépense possible.
+   * Interdit pendant une main en cours, pour ne pas fausser les calculs
+   * d'assurance ou de double en plein tour.
+   */
+  giveChips(fromToken, toToken, amount) {
+    if (this.phase === 'playing' || this.phase === 'dealer' || this.phase === 'insurance') {
+      throw new Error('Attends la fin de la manche pour donner des jetons.');
+    }
+    const from = this.players.get(fromToken);
+    if (!from) throw new Error('Joueur inconnu.');
+    const to = this.players.get(toToken);
+    if (!to) throw new Error('Ce joueur n’est plus à la table.');
+    if (from.id === to.id) throw new Error('Tu ne peux pas te donner des jetons à toi-même.');
+    const amt = Math.floor(Number(amount));
+    if (!Number.isFinite(amt) || amt <= 0) throw new Error('Montant invalide.');
+    if (amt > from.balance) throw new Error('Solde insuffisant.');
+    from.balance -= amt;
+    to.balance += amt;
+    this.push();
+    return { from, to, amount: amt };
+  }
+
+  /**
+   * Exclusion décidée par le chef de table, uniquement entre deux manches
+   * (jamais en pleine main : cela casserait l'ordre des tours).
+   */
+  kickByHost(hostToken, targetToken) {
+    if (hostToken !== this.hostPlayerId()) {
+      throw new Error('Seul le chef de table peut exclure un joueur.');
+    }
+    if (this.phase !== 'lobby' && this.phase !== 'results') {
+      throw new Error('Exclusion possible seulement entre deux manches.');
+    }
+    if (hostToken === targetToken) throw new Error('Tu ne peux pas t’exclure toi-même.');
+    const target = this.players.get(targetToken);
+    if (!target) throw new Error('Ce joueur n’est plus à la table.');
+    const name = target.name;
+    this.kickPlayer(targetToken);
+    return { name };
   }
 
   /**
@@ -805,7 +902,10 @@ class Game {
           connected: p.connected,
           inRound: p.inRound,
           betPlaced: p.betPlaced,
-          presetAction: p.presetAction,
+          // Le pré-choix est une information privée : il n'est jamais diffusé
+          // ici. Le serveur le réinjecte uniquement dans l'état envoyé à son
+          // auteur (voir broadcastState dans server.js).
+          presetAction: null,
           insuranceBet: p.insuranceBet,
           insuranceDecided: p.insuranceDecided,
           insuranceResult: p.insuranceResult,

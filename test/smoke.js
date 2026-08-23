@@ -123,14 +123,115 @@ console.log('✓ valeurs de mains, blackjack naturel, sabot 6 jeux');
   assert.strictEqual(resumed.connected, true);
   assert.strictEqual(resumed.disconnectedAt, null);
 
-  // Le prochain lancement de manche purge quand même les déconnectés restants.
+  // Le lancement d'une manche sort les déconnectés de la table, mais leurs
+  // jetons partent au vestiaire — ils les retrouvent en revenant.
   const bob = game.addPlayer({ token: 'bob', name: 'Bob' });
   bob.ip = '10.0.0.6';
+  bob.balance = 3450; // il a gagné pendant la partie
   game.disconnectPlayer('bob');
   game.setGameMode('table');
   game.startBetting();
-  assert.strictEqual(game.players.has('bob'), false, 'un déconnecté non repris est purgé à la manche suivante');
+  assert.strictEqual(game.players.has('bob'), false, 'un déconnecté quitte la table à la manche suivante');
+  assert.strictEqual(game.parked.has('bob'), true, 'mais il est conservé au vestiaire');
   console.log('✓ un joueur déconnecté reste identifiable par IP pour proposer une reprise');
+
+  // Le retour : mêmes jetons, pas de remise à la cave de départ.
+  const back = game.addPlayer({ token: 'bob', name: 'Bob' });
+  assert.strictEqual(back.balance, 3450, 'le solde doit être conservé au retour');
+  assert.strictEqual(back.connected, true);
+  assert.strictEqual(game.parked.has('bob'), false, 'il quitte le vestiaire');
+  assert.strictEqual(game.players.has('bob'), true, 'et retrouve sa place à la table');
+  console.log('✓ un joueur qui revient retrouve ses jetons (pas de remise à zéro)');
+
+  // Le vestiaire reste consultable pour la reprise par IP.
+  const carl = game.addPlayer({ token: 'carl', name: 'Carl' });
+  carl.ip = '10.0.0.7';
+  carl.balance = 777;
+  game.disconnectPlayer('carl');
+  game.clearTimers();
+  game.phase = 'lobby';
+  game.startBetting();
+  assert.strictEqual(game.parked.has('carl'), true);
+  const fromParked = game.findResumeCandidate('10.0.0.7', 'un-autre-token');
+  assert.ok(fromParked, 'la reprise par IP doit aussi trouver les joueurs au vestiaire');
+  assert.strictEqual(fromParked.balance, 777);
+  console.log('✓ la reprise par IP retrouve aussi un joueur passé au vestiaire');
+
+  // Une exclusion, elle, est définitive : aucun retour avec l'ancien solde.
+  const dave = game.addPlayer({ token: 'dave', name: 'Dave' });
+  dave.balance = 9000;
+  game.kickPlayer('dave');
+  const daveBack = game.addPlayer({ token: 'dave', name: 'Dave' });
+  assert.strictEqual(daveBack.balance, game.opts.startingBalance, 'un joueur exclu revient comme nouveau joueur');
+  console.log('✓ un joueur exclu ne récupère pas son ancien solde');
+})();
+
+// ------------------------------------------------- dons & exclusion (kick)
+
+(() => {
+  const game = new Game(() => {}, { betTimeMs: 100000, turnTimeMs: 100000 });
+  const ana = game.addPlayer({ token: 'ana', name: 'Ana' });   // 1re → chef
+  const ben = game.addPlayer({ token: 'ben', name: 'Ben' });
+  const cid = game.addPlayer({ token: 'cid', name: 'Cid' });
+  game.setStartingBalance(1000);
+
+  // --- dons
+  assert.throws(() => game.giveChips('ana', 'ana', 100), /toi-même/i);
+  assert.throws(() => game.giveChips('ana', 'inconnu', 100), /plus à la table/i);
+  assert.throws(() => game.giveChips('ana', 'ben', 0), /invalide/i);
+  assert.throws(() => game.giveChips('ana', 'ben', 5000), /insuffisant/i);
+
+  const gift = game.giveChips('ana', 'ben', 250);
+  assert.strictEqual(ana.balance, 750);
+  assert.strictEqual(ben.balance, 1250);
+  assert.strictEqual(gift.amount, 250);
+  assert.strictEqual(gift.to.id, 'ben');
+  // Les jetons ne sont ni créés ni détruits par un don.
+  assert.strictEqual(ana.balance + ben.balance + cid.balance, 3000, 'total de jetons conservé');
+  console.log('✓ don de jetons : débité, crédité, total conservé');
+
+  // Pas de don en pleine main (les mises et l'assurance en dépendent).
+  game.setGameMode('table');
+  game.startBetting();
+  game.placeBet('ana', 100);
+  game.placeBet('ben', 100);
+  game.placeBet('cid', 100);
+  assert.ok(['playing', 'insurance', 'results'].includes(game.phase));
+  if (game.phase === 'playing' || game.phase === 'insurance') {
+    assert.throws(() => game.giveChips('ana', 'ben', 10), /fin de la manche/i);
+    console.log('✓ don refusé pendant une main en cours');
+  }
+  game.clearTimers();
+
+  // --- exclusion
+  const g2 = new Game(() => {}, { betTimeMs: 100000, turnTimeMs: 100000 });
+  const zoe = g2.addPlayer({ token: 'zoe', name: 'Zoe' }); // chef de table
+  g2.addPlayer({ token: 'kim', name: 'Kim' });
+  assert.strictEqual(g2.hostPlayerId(), 'zoe');
+
+  assert.throws(() => g2.kickByHost('kim', 'zoe'), /chef de table/i, 'un non-chef ne peut pas exclure');
+  assert.throws(() => g2.kickByHost('zoe', 'zoe'), /toi-même/i);
+  assert.throws(() => g2.kickByHost('zoe', 'fantome'), /plus à la table/i);
+
+  const res = g2.kickByHost('zoe', 'kim');
+  assert.strictEqual(res.name, 'Kim');
+  assert.strictEqual(g2.players.has('kim'), false, 'Kim doit avoir quitté la table');
+  assert.strictEqual(g2.parked.has('kim'), false, 'une exclusion ne passe pas par le vestiaire');
+  console.log('✓ exclusion par le chef de table, sans retour possible avec l’ancien solde');
+
+  // Jamais en pleine main.
+  const g3 = new Game(() => {}, { betTimeMs: 100000, turnTimeMs: 100000 });
+  g3.addPlayer({ token: 'h', name: 'Hôte' });
+  g3.addPlayer({ token: 'j', name: 'Joueur' });
+  g3.setGameMode('table');
+  g3.startBetting();
+  g3.placeBet('h', 100);
+  g3.placeBet('j', 100);
+  if (g3.phase !== 'results') {
+    assert.throws(() => g3.kickByHost('h', 'j'), /entre deux manches/i);
+    console.log('✓ exclusion refusée en pleine manche');
+  }
+  g3.clearTimers();
 })();
 
 // ------------------------------------------------------------- pré-choix
@@ -151,8 +252,10 @@ console.log('✓ valeurs de mains, blackjack naturel, sabot 6 jeux');
   game.setPresetAction('a', 'stand');
   assert.strictEqual(alice.presetAction, 'stand');
 
+  // Le pré-choix ne doit jamais fuiter dans l'état diffusé : les autres
+  // joueurs n'ont pas à connaître l'intention d'Alice.
   const pub = game.publicState();
-  assert.strictEqual(pub.players.find((p) => p.id === 'a').presetAction, 'stand', 'visible dans l\'état public');
+  assert.strictEqual(pub.players.find((p) => p.id === 'a').presetAction, null, 'le pré-choix reste privé');
 
   // Bob termine son tour → le pré-choix d'Alice s'exécute automatiquement.
   game.stand('b');

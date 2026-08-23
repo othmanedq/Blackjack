@@ -64,10 +64,41 @@ const localIp = process.env.HOST_IP || (localIps[0] ? localIps[0].address : 'loc
 const publicUrl = process.env.PUBLIC_URL ? process.env.PUBLIC_URL.replace(/\/+$/, '') : null;
 const joinUrl = publicUrl ? `${publicUrl}/` : `http://${localIp}:${PORT}/`;
 
-const game = new Game((state) => io.emit('state', state));
-
 // token socket -> playerId, pour gérer les déconnexions
 const socketPlayer = new Map();
+
+/**
+ * Diffuse l'état à tous les écrans. Le pré-choix d'action est une information
+ * privée (les autres joueurs ne doivent pas connaître ton intention) : il est
+ * absent de l'état public et réinjecté uniquement pour son auteur.
+ */
+function broadcastState(state) {
+  for (const [socketId, socket] of io.sockets.sockets) {
+    const token = socketPlayer.get(socketId);
+    const player = token ? game.players.get(token) : null;
+    if (!player || !player.presetAction) {
+      socket.emit('state', state);
+      continue;
+    }
+    socket.emit('state', {
+      ...state,
+      players: state.players.map((p) =>
+        p.id === token ? { ...p, presetAction: player.presetAction } : p
+      ),
+    });
+  }
+}
+
+const game = new Game(broadcastState);
+
+/** Prévient les sockets d'un joueur exclu et libère son association. */
+function notifyKicked(playerId, message) {
+  for (const [sid, t] of [...socketPlayer]) {
+    if (t !== playerId) continue;
+    io.to(sid).emit('player:kicked', { message });
+    socketPlayer.delete(sid);
+  }
+}
 
 /** Adresse IPv4 normalisée du socket (retire le préfixe IPv4-mappée IPv6). */
 function clientIp(socket) {
@@ -208,20 +239,39 @@ io.on('connection', (socket) => {
       if (!token) throw new Error('Rejoins la partie d’abord.');
       const result = game.voteRebuy(token, !!accept);
       if (result.kicked) {
-        // Le refus exclut le demandeur : on prévient son téléphone.
-        for (const [sid, t] of [...socketPlayer]) {
-          if (t === result.kicked) {
-            io.to(sid).emit('player:kicked', {
-              message: 'La re-cave a été refusée : tu quittes la table. Tu peux revenir comme nouveau joueur.',
-            });
-            socketPlayer.delete(sid);
-          }
-        }
+        notifyKicked(result.kicked,
+          'La re-cave a été refusée : tu quittes la table. Tu peux revenir comme nouveau joueur.');
       }
       if (typeof ack === 'function') ack({ ok: true });
     } catch (err) {
       if (typeof ack === 'function') ack({ ok: false, message: err.message });
     }
+  });
+
+  // Don de jetons à un autre joueur de la table.
+  socket.on('player:give', ({ to, amount } = {}, ack) => {
+    respond(ack, () => {
+      const token = socketPlayer.get(socket.id);
+      if (!token) throw new Error('Rejoins la partie d’abord.');
+      const gift = game.giveChips(token, to, amount);
+      // Le bénéficiaire est prévenu sur son téléphone.
+      for (const [sid, t] of socketPlayer) {
+        if (t === gift.to.id) {
+          io.to(sid).emit('player:gift', { fromName: gift.from.name, amount: gift.amount });
+        }
+      }
+    });
+  });
+
+  // Exclusion d'un joueur par le chef de table.
+  socket.on('player:kick', ({ target } = {}, ack) => {
+    respond(ack, () => {
+      const token = socketPlayer.get(socket.id);
+      if (!token) throw new Error('Rejoins la partie d’abord.');
+      game.kickByHost(token, target);
+      notifyKicked(target,
+        'Le chef de table t’a exclu. Tu peux revenir comme nouveau joueur.');
+    });
   });
 
   // Mode « chacun son écran » : le chef de table lance les manches du téléphone.

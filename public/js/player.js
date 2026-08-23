@@ -5,7 +5,7 @@
 const socket = io();
 
 const ACTION_LABELS = { hit: 'Hit', stand: 'Stand', double: 'Double', split: 'Split' };
-const AVATARS = ['🦁', '🦊', '🐼', '🐸', '🦅', '🐙', '🦈', '🐯'];
+const AVATARS = AVATAR_ICONS; // clés d'icônes (voir icons.js)
 const COLORS = ['#f39c12', '#e74c3c', '#9b59b6', '#3498db', '#1abc9c', '#2ecc71', '#e91e8c', '#95a5a6'];
 
 const els = {
@@ -23,8 +23,10 @@ const els = {
   resumeYes: document.getElementById('resume-yes'),
   resumeNo: document.getElementById('resume-no'),
   meAvatar: document.getElementById('me-avatar'),
-  meName: document.getElementById('me-name'),
+  meCrown: document.getElementById('me-crown'),
+  meNameText: document.getElementById('me-name-text'),
   meBalance: document.getElementById('me-balance'),
+  phoneStartLabel: document.getElementById('phone-start-label'),
   meStatus: document.getElementById('me-status'),
   meTimer: document.getElementById('me-timer'),
   meTimerFill: document.querySelector('#me-timer > i'),
@@ -33,6 +35,7 @@ const els = {
   betConfirm: document.getElementById('bet-confirm'),
   betClear: document.getElementById('bet-clear'),
   betAllin: document.getElementById('bet-allin'),
+  betAllinLabel: document.getElementById('bet-allin-label'),
   insurancePanel: document.getElementById('insurance-panel'),
   insuranceText: document.getElementById('insurance-text'),
   insuranceActions: document.getElementById('insurance-actions'),
@@ -47,6 +50,19 @@ const els = {
   configHint: document.getElementById('config-hint'),
   rebuyPanel: document.getElementById('rebuy-panel'),
   rebuyBody: document.getElementById('rebuy-body'),
+  tableActions: document.getElementById('table-actions'),
+  giveBtn: document.getElementById('give-btn'),
+  kickBtn: document.getElementById('kick-btn'),
+  pmModal: document.getElementById('pm-modal'),
+  pmTitle: document.getElementById('pm-title'),
+  pmHint: document.getElementById('pm-hint'),
+  pmList: document.getElementById('pm-list'),
+  pmAmountBox: document.getElementById('pm-amount-box'),
+  pmAmount: document.getElementById('pm-amount'),
+  pmClear: document.getElementById('pm-clear'),
+  pmAll: document.getElementById('pm-all'),
+  pmConfirm: document.getElementById('pm-confirm'),
+  pmCancel: document.getElementById('pm-cancel'),
   tablePanel: document.getElementById('table-panel'),
   tableToggle: document.getElementById('table-toggle'),
   tDealer: document.getElementById('t-dealer'),
@@ -70,6 +86,7 @@ localStorage.setItem('bj_token', token);
 
 let profile = JSON.parse(localStorage.getItem('bj_profile') || 'null');
 let joined = false;
+let joining = false; // une inscription est en cours (évite un faux « exclu »)
 let state = null;
 let prevMe = null;
 let pendingBet = 0;
@@ -89,7 +106,8 @@ function buildPicker(container, values, chosen, onPick, isColor) {
       btn.className = 'swatch';
       btn.style.background = v;
     } else {
-      btn.textContent = v;
+      btn.className = 'avatar-choice';
+      btn.innerHTML = iconHtml(v);
     }
     if (v === chosen) btn.classList.add('selected');
     btn.addEventListener('click', () => {
@@ -117,7 +135,9 @@ els.joinForm.addEventListener('submit', (e) => {
 });
 
 function join(opts = {}) {
+  joining = true;
   socket.emit('player:join', { token, ...profile, ignoreResume: !!opts.ignoreResume }, (res) => {
+    joining = false;
     if (res && res.resumeCandidate) {
       showResumeModal(res.resumeCandidate);
       return;
@@ -129,18 +149,27 @@ function join(opts = {}) {
     joined = true;
     els.screenLobby.hidden = true;
     els.screenGame.hidden = false;
-    els.meAvatar.textContent = profile.avatar;
+    els.meAvatar.innerHTML = avatarHtml(profile.avatar);
     els.meAvatar.style.setProperty('--p-color', profile.color);
-    els.meName.textContent = profile.name;
+    els.meNameText.textContent = profile.name;
     sfx.chip();
     render();
   });
 }
 
+/** Repasse à l'écran d'accueil (sans réinscription automatique). */
+function leaveToLobby(message) {
+  joined = false;
+  pendingBet = 0;
+  els.screenGame.hidden = true;
+  els.screenLobby.hidden = false;
+  els.joinError.textContent = message || '';
+}
+
 /* --------------------- reprise après déconnexion (même IP) --------------------- */
 
 function showResumeModal(candidate) {
-  els.resumeAvatar.textContent = candidate.avatar;
+  els.resumeAvatar.innerHTML = avatarHtml(candidate.avatar);
   els.resumeAvatar.style.setProperty('--p-color', candidate.color);
   els.resumeName.textContent = candidate.name;
   els.resumeBalance.textContent = fmt.format(candidate.balance);
@@ -297,13 +326,10 @@ els.rebuyBody.addEventListener('click', (e) => {
 
 // Re-cave refusée : on quitte la table, avec une identité neuve pour revenir.
 socket.on('player:kicked', ({ message } = {}) => {
-  joined = false;
-  pendingBet = 0;
+  // Identité neuve : on ne doit pas pouvoir revenir avec l'ancienne place.
   token = newToken();
   localStorage.setItem('bj_token', token);
-  els.screenGame.hidden = true;
-  els.screenLobby.hidden = false;
-  els.joinError.textContent = message || 'Tu as quitté la table.';
+  leaveToLobby(message || 'Tu as quitté la table.');
   sfx.lose();
   if (navigator.vibrate) navigator.vibrate(300);
 });
@@ -326,11 +352,11 @@ function renderConfig(me) {
 
   if (!state.mode) {
     els.configHint.textContent = isChef
-      ? '👑 Choisis d\'abord un mode de jeu, puis la cave de chacun.'
+      ? 'Choisis d\'abord un mode de jeu, puis la cave de chacun.'
       : 'En attente du chef de table pour choisir le mode de jeu…';
   } else {
     els.configHint.textContent = isChef
-      ? 'Tu es chef de table 👑 : ces réglages ne changeront plus après la première manche.'
+      ? 'Chef de table : ces réglages ne changeront plus après la première manche.'
       : `Mode : ${MODE_LABELS[state.mode]} — cave à ${fmt.format(state.startingBalance)} jetons.`;
   }
 }
@@ -340,30 +366,144 @@ function renderRebuy(me) {
   const isBroke = me.balance < state.minBet;
   let html = '';
   if (r && r.playerId === me.id) {
-    html = `<p class="rebuy-text">Demande envoyée 🙏<br>
+    html = `<p class="rebuy-text">Demande envoyée.<br>
       <strong>${r.approved}/${r.total}</strong> joueur(s) ont accepté — il faut l'unanimité.<br>
       <small>Un seul refus et tu quittes la table.</small></p>`;
   } else if (r && r.awaiting.includes(me.id)) {
-    html = `<p class="rebuy-text"><strong>${r.playerName}</strong> n'a plus de jetons et demande
+    html = `<p class="rebuy-text"><strong>${esc(r.playerName)}</strong> n'a plus de jetons et demande
       une re-cave de <strong>${fmt.format(r.amount)}</strong>.<br>
       <small>Unanimité requise — un refus l'exclut de la table.</small></p>
       <div class="rebuy-actions">
-        <button type="button" class="rebuy-yes" data-rebuy="yes">✅ Accepter</button>
-        <button type="button" class="rebuy-no" data-rebuy="no">❌ Refuser</button>
+        <button type="button" class="rebuy-yes" data-rebuy="yes">${iconHtml('check')} Accepter</button>
+        <button type="button" class="rebuy-no" data-rebuy="no">${iconHtml('cross')} Refuser</button>
       </div>`;
   } else if (r) {
-    html = `<p class="rebuy-text">Re-cave de <strong>${r.playerName}</strong> :
+    html = `<p class="rebuy-text">Re-cave de <strong>${esc(r.playerName)}</strong> :
       ${r.approved}/${r.total} ont accepté…</p>`;
   } else if (isBroke && !me.inRound) {
-    html = `<p class="rebuy-text">Plus de jetons ! 💸<br>Demande une re-cave aux autres joueurs,
+    html = `<p class="rebuy-text">Plus de jetons.<br>Demande une re-cave aux autres joueurs,
       ou quitte la table.</p>
       <button type="button" class="cta rebuy-request" data-rebuy="request">
-        🙏 Demander une re-cave (${fmt.format(state.startingBalance)})
+        ${iconHtml('chipPlus')} Demander une re-cave (${fmt.format(state.startingBalance)})
       </button>`;
   }
   els.rebuyPanel.hidden = !html;
   els.rebuyBody.innerHTML = html;
 }
+
+/* ------------------- don de jetons & exclusion (modale) ------------------- */
+
+// { mode: 'give' | 'kick', target: playerId|null, amount: number }
+let pm = { mode: null, target: null, amount: 0 };
+
+function openPlayerModal(mode) {
+  const me = findMe();
+  if (!me) return;
+  pm = { mode, target: null, amount: 0 };
+  els.pmTitle.textContent = mode === 'give' ? 'Donner des jetons' : 'Exclure un joueur';
+  els.pmHint.textContent = mode === 'give'
+    ? 'Choisis à qui donner, puis le montant. Le transfert est immédiat et définitif.'
+    : 'Choisis le joueur à exclure. Il pourra revenir, mais comme un nouveau joueur.';
+  els.pmAmountBox.hidden = mode !== 'give';
+  els.pmModal.hidden = false;
+  renderPlayerModal();
+}
+
+function closePlayerModal() {
+  els.pmModal.hidden = true;
+  pm = { mode: null, target: null, amount: 0 };
+}
+
+function renderPlayerModal() {
+  if (els.pmModal.hidden) return;
+  const me = findMe();
+  if (!me) return closePlayerModal();
+
+  const others = state.players.filter((p) => p.id !== me.id);
+  if (others.length === 0) {
+    els.pmList.innerHTML = '<div class="t-empty">Personne d’autre à la table.</div>';
+  } else {
+    els.pmList.innerHTML = others.map((p) => `
+      <button type="button" class="pm-row${p.id === pm.target ? ' selected' : ''}" data-pm-target="${esc(p.id)}">
+        <span class="pm-avatar" style="--p-color:${esc(p.color)}">${avatarHtml(p.avatar)}</span>
+        <span class="pm-name">${esc(p.name)}</span>
+        <span class="pm-bal">${iconHtml('chip')} ${fmt.format(p.balance)}</span>
+      </button>`).join('');
+  }
+  // Une cible qui a quitté la table entre-temps ne reste pas sélectionnée.
+  if (pm.target && !others.some((p) => p.id === pm.target)) pm.target = null;
+
+  if (pm.mode === 'give') {
+    els.pmAmount.textContent = fmt.format(pm.amount);
+    document.querySelectorAll('[data-pm-chip]').forEach((chip) => {
+      chip.disabled = pm.amount + Number(chip.dataset.pmChip) > me.balance;
+    });
+    els.pmConfirm.disabled = !pm.target || pm.amount <= 0 || pm.amount > me.balance;
+    els.pmConfirm.textContent = pm.amount > 0 ? `Donner ${fmt.format(pm.amount)}` : 'Donner';
+  } else {
+    els.pmConfirm.disabled = !pm.target;
+    els.pmConfirm.textContent = 'Exclure';
+  }
+}
+
+els.giveBtn.addEventListener('click', () => { sfx.click(); openPlayerModal('give'); });
+els.kickBtn.addEventListener('click', () => { sfx.click(); openPlayerModal('kick'); });
+els.pmCancel.addEventListener('click', () => { sfx.click(); closePlayerModal(); });
+
+els.pmList.addEventListener('click', (e) => {
+  const row = e.target.closest('[data-pm-target]');
+  if (!row) return;
+  sfx.click();
+  pm.target = row.dataset.pmTarget;
+  renderPlayerModal();
+});
+
+document.querySelectorAll('[data-pm-chip]').forEach((chip) => {
+  chip.addEventListener('click', () => {
+    const me = findMe();
+    if (!me) return;
+    const val = Number(chip.dataset.pmChip);
+    if (pm.amount + val > me.balance) return showToast('Solde insuffisant.');
+    pm.amount += val;
+    sfx.chip();
+    renderPlayerModal();
+  });
+});
+
+els.pmClear.addEventListener('click', () => { pm.amount = 0; sfx.click(); renderPlayerModal(); });
+els.pmAll.addEventListener('click', () => {
+  const me = findMe();
+  if (!me) return;
+  pm.amount = me.balance;
+  sfx.chip();
+  renderPlayerModal();
+});
+
+els.pmConfirm.addEventListener('click', () => {
+  if (!pm.target) return;
+  sfx.click();
+  if (pm.mode === 'give') {
+    socket.emit('player:give', { to: pm.target, amount: pm.amount }, (res) => {
+      if (res && !res.ok) return showToast(res.message);
+      sfx.chip();
+      showToast('Jetons envoyés.');
+      closePlayerModal();
+    });
+  } else {
+    socket.emit('player:kick', { target: pm.target }, (res) => {
+      if (res && !res.ok) return showToast(res.message);
+      closePlayerModal();
+    });
+  }
+});
+
+// Un don reçu : petit retour visible et sonore.
+socket.on('player:gift', ({ fromName, amount } = {}) => {
+  showToast(`${fromName} t’a donné ${fmt.format(amount)} jetons !`);
+  sfx.win();
+  burstConfetti(30);
+  if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
+});
 
 /* -------------------- table repliable + chef de table -------------------- */
 
@@ -424,12 +564,14 @@ function render() {
   if (!state || !joined) return;
   const me = findMe();
   if (!me) {
-    // Expulsé (ex : serveur relancé) → retour au lobby pour re-rejoindre.
-    if (profile) join();
+    // On n'est plus à la table (exclusion, ou serveur redémarré). On repasse au
+    // lobby SANS se réinscrire tout seul : une réinscription automatique
+    // recréerait aussitôt un joueur exclu, en plusieurs exemplaires.
+    if (!joining) leaveToLobby('Tu n\'es plus à la table. Reprends une place quand tu veux.');
     return;
   }
 
-  els.meBalance.textContent = `🪙 ${fmt.format(me.balance)}`;
+  els.meBalance.textContent = fmt.format(me.balance);
 
   const myTurn = me.isTurn;
   const activeHand = myTurn && me.hands[me.turnHandIndex] ? me.hands[me.turnHandIndex] : null;
@@ -454,45 +596,56 @@ function render() {
   // (uniquement en mode « chacun son écran » — en mode table, c'est l'écran
   // commun qui lance les manches).
   const isChef = state.hostPlayerId === me.id;
-  els.meName.textContent = (isChef ? '👑 ' : '') + profile.name;
+  els.meCrown.hidden = !isChef;
+  els.meNameText.textContent = profile.name;
   const canStart = isChef && phoneUiEnabled() && (state.phase === 'lobby' || state.phase === 'results');
   els.phoneStart.hidden = !canStart;
-  els.phoneStart.textContent = state.roundNumber ? 'Nouvelle manche 🎰' : 'Lancer la manche 🎰';
+  els.phoneStartLabel.textContent = state.roundNumber ? 'Nouvelle manche' : 'Lancer la manche';
 
-  // Statut + message central
-  let badge = ['waiting', 'En attente'];
+  // Don de jetons et exclusion : uniquement entre deux manches, et s'il y a
+  // au moins un autre joueur à la table.
+  const betweenRounds = state.phase === 'lobby' || state.phase === 'results';
+  const hasOthers = state.players.length > 1;
+  const canGive = betweenRounds && hasOthers && me.balance > 0;
+  els.kickBtn.hidden = !(isChef && betweenRounds && hasOthers);
+  els.giveBtn.hidden = !canGive;
+  els.tableActions.hidden = els.kickBtn.hidden && els.giveBtn.hidden;
+  renderPlayerModal();
+
+  // Statut + message central — badge = [classe, icône, libellé]
+  let badge = ['waiting', 'clock', 'En attente'];
   let msg = '';
   let msgCls = '';
   if (state.phase === 'lobby') {
     if (!state.mode) {
       msg = isChef
-        ? 'Choisis le mode de jeu ci-dessus 👆'
+        ? 'Choisis le mode de jeu ci-dessus.'
         : 'En attente du chef de table pour configurer la partie…';
     } else if (state.mode === 'table') {
       msg = isChef
-        ? 'Mode « tous sur un écran ».\nLance la manche depuis l\'écran de la table 🖥️'
-        : 'Bien installé ! 🛋️\nRegarde l\'écran de la table pour suivre la partie.';
+        ? 'Mode « tous sur un écran ».\nLance la manche depuis l\'écran de la table.'
+        : 'Bien installé !\nRegarde l\'écran de la table pour suivre la partie.';
     } else {
       msg = isChef
-        ? 'Tu es le chef de table 👑\nLance la manche quand tout le monde a rejoint !'
-        : 'Bien installé ! 🛋️\nEn attente du lancement de la manche…';
+        ? 'Tu es le chef de table.\nLance la manche quand tout le monde a rejoint !'
+        : 'Bien installé !\nEn attente du lancement de la manche…';
     }
   } else if (isBetting) {
     if (me.betPlaced) {
-      badge = ['betting', 'Mise placée ✓'];
+      badge = ['betting', 'check', 'Mise placée'];
       msg = 'Mise placée.\nEn attente des autres joueurs…';
     } else if (isBroke) {
-      badge = ['lose', 'À sec 🪙'];
+      badge = ['lose', 'chip', 'À sec'];
     } else {
-      badge = ['betting', 'Fais ton jeu 💰'];
+      badge = ['betting', 'chips', 'Fais ton jeu'];
     }
   } else if (state.phase === 'insurance') {
-    badge = me.inRound ? ['betting', 'Assurance 🂡'] : ['waiting', 'En attente'];
+    badge = me.inRound ? ['betting', 'shield', 'Assurance'] : ['waiting', 'clock', 'En attente'];
   } else if (state.phase === 'playing') {
     if (!me.inRound) {
       msg = 'Tu ne joues pas cette manche.\nTu pourras miser à la prochaine !';
     } else if (myTurn) {
-      badge = ['turn', '🎯 À toi de jouer !'];
+      badge = ['turn', 'target', 'À toi de jouer !'];
     } else {
       const cur = state.players.find((p) => p.id === (state.current && state.current.playerId));
       badge = statusBadge(me);
@@ -500,7 +653,7 @@ function render() {
     }
   } else if (state.phase === 'dealer') {
     badge = statusBadge(me);
-    msg = 'Le croupier joue… 🂠';
+    msg = 'Le croupier joue…';
   } else if (state.phase === 'results') {
     if (me.inRound) {
       const r = overallResult(me);
@@ -512,7 +665,7 @@ function render() {
     }
   }
   els.meStatus.className = `badge ${badge[0]}`;
-  els.meStatus.textContent = badge[1];
+  setLabel(els.meStatus, badge[1], badge[2]);
   els.centerMsg.textContent = msg;
   els.centerMsg.className = `center-msg ${msgCls}`;
 
@@ -535,9 +688,9 @@ function render() {
     btn.classList.toggle('armed', presetMode && me.presetAction === btn.dataset.action);
   });
   els.presetHint.hidden = !presetMode;
-  els.presetHint.textContent = me.presetAction
-    ? `🕐 Programmé : ${ACTION_LABELS[me.presetAction]} — retape pour annuler`
-    : '🕐 Pré-choisis ton coup, il s\'exécutera dès ton tour';
+  setLabel(els.presetHint, 'clock', me.presetAction
+    ? `Programmé : ${ACTION_LABELS[me.presetAction]} — retape pour annuler`
+    : 'Pré-choisis ton coup, il s\'exécutera dès ton tour');
 
   playFeedback(me, myTurn);
   prevMe = JSON.parse(JSON.stringify(me));
@@ -545,33 +698,37 @@ function render() {
 
 function statusBadge(me) {
   const statuses = me.hands.map((h) => h.status);
-  if (statuses.every((s) => s === 'blackjack')) return ['blackjack', '♠ Blackjack !'];
-  if (statuses.every((s) => s === 'bust')) return ['bust', '💥 Bust'];
-  if (statuses.every((s) => s === 'stand' || s === 'bust' || s === 'blackjack')) return ['stand', 'Stand'];
-  return ['waiting', 'En attente'];
+  if (statuses.every((s) => s === 'blackjack')) return ['blackjack', 'spade', 'Blackjack !'];
+  if (statuses.every((s) => s === 'bust')) return ['bust', 'burst', 'Bust'];
+  if (statuses.every((s) => s === 'stand' || s === 'bust' || s === 'blackjack')) return ['stand', 'stand', 'Stand'];
+  return ['waiting', 'clock', 'En attente'];
 }
 
 function overallResult(me) {
   const net = me.lastNet;
   if (me.hands.some((h) => h.result === 'blackjack')) {
-    return { badge: ['blackjack', '♠ Blackjack !'], msg: `BLACKJACK ! 🎉\n+${fmt.format(net)} jetons (payé 3:2)`, cls: 'win' };
+    return {
+      badge: ['blackjack', 'spade', 'Blackjack !'],
+      msg: `BLACKJACK !\n+${fmt.format(net)} jetons (payé 3:2)`,
+      cls: 'win',
+    };
   }
-  if (net > 0) return { badge: ['win', 'Gagné'], msg: `Bien joué ! 🏆\n+${fmt.format(net)} jetons`, cls: 'win' };
-  if (net < 0) return { badge: ['lose', 'Perdu'], msg: `Perdu… 💸\n−${fmt.format(-net)} jetons`, cls: 'lose' };
-  return { badge: ['push', 'Égalité'], msg: 'Égalité (push).\nTa mise est rendue.', cls: '' };
+  if (net > 0) return { badge: ['win', 'trophy', 'Gagné'], msg: `Bien joué !\n+${fmt.format(net)} jetons`, cls: 'win' };
+  if (net < 0) return { badge: ['lose', 'trendDown', 'Perdu'], msg: `Perdu…\n−${fmt.format(-net)} jetons`, cls: 'lose' };
+  return { badge: ['push', 'check', 'Égalité'], msg: 'Égalité (push).\nTa mise est rendue.', cls: '' };
 }
 
 function renderBet(me) {
   if (!me) return;
   els.betAmount.textContent = fmt.format(pendingBet);
   els.betConfirm.disabled = pendingBet < state.minBet;
-  els.betConfirm.textContent = pendingBet >= state.minBet ? `Miser ${fmt.format(pendingBet)} ✓` : `Min. ${state.minBet}`;
+  els.betConfirm.textContent = pendingBet >= state.minBet ? `Miser ${fmt.format(pendingBet)}` : `Min. ${state.minBet}`;
   document.querySelectorAll('.chip[data-chip]').forEach((chip) => {
     chip.disabled = pendingBet + Number(chip.dataset.chip) > me.balance;
   });
+  const atMax = pendingBet === me.balance && me.balance >= state.minBet;
   els.betAllin.disabled = me.balance < state.minBet || pendingBet === me.balance;
-  els.betAllin.textContent = pendingBet === me.balance && me.balance >= state.minBet
-    ? '🚀 All-in ✓' : `🚀 All-in (${fmt.format(me.balance)})`;
+  els.betAllinLabel.textContent = atMax ? 'All-in' : `All-in (${fmt.format(me.balance)})`;
 }
 
 function renderHands(me) {
@@ -600,17 +757,17 @@ function renderHands(me) {
     const sb = box.querySelector('.hand-status');
     if (h.status === 'bust' || h.status === 'blackjack' || (state.phase === 'results' && h.result)) {
       const map = {
-        bust: ['bust', 'Bust'],
-        blackjack: ['blackjack', 'BJ'],
-        win: ['win', 'Gagné'],
-        lose: ['lose', 'Perdu'],
-        push: ['push', 'Push'],
+        bust: ['bust', 'burst', 'Bust'],
+        blackjack: ['blackjack', 'spade', 'BJ'],
+        win: ['win', 'trophy', 'Gagné'],
+        lose: ['lose', 'trendDown', 'Perdu'],
+        push: ['push', 'check', 'Push'],
       };
       const key = state.phase === 'results' && h.result ? h.result : h.status;
-      const [cls, txt] = map[key] || ['waiting', ''];
+      const [cls, ico, txt] = map[key] || ['waiting', 'clock', ''];
       sb.hidden = false;
       sb.className = `badge hand-status ${cls}`;
-      sb.textContent = txt;
+      setLabel(sb, ico, txt);
     } else {
       sb.hidden = true;
     }
@@ -622,23 +779,33 @@ function renderHands(me) {
 
 const otherEls = new Map(); // playerId -> élément de rangée
 
+/** @returns {[string, string, string]} [classe CSS, icône, libellé] */
 function otherStatusBadge(p) {
-  if (!p.connected) return ['waiting', 'Déco.'];
+  if (!p.connected) return ['waiting', 'unplug', 'Déco.'];
   if (state.phase === 'betting') {
-    if (p.betPlaced) return ['betting', 'A misé ✓'];
-    return p.balance < state.minBet ? ['lose', 'À sec'] : ['betting', 'Mise…'];
+    if (p.betPlaced) return ['betting', 'check', 'A misé'];
+    return p.balance < state.minBet ? ['lose', 'chip', 'À sec'] : ['betting', 'chips', 'Mise…'];
   }
-  if (p.isTurn) return ['turn', '🎯 Joue'];
+  if (p.isTurn) return ['turn', 'target', 'Joue'];
+  if (state.phase === 'insurance' && p.inRound) {
+    if (!p.insuranceDecided) return ['betting', 'shield', 'Décide…'];
+    return p.insuranceBet > 0 ? ['betting', 'shield', 'Assuré'] : ['waiting', 'cross', 'Non assuré'];
+  }
   if (state.phase === 'results' && p.inRound) {
-    const map = { win: ['win', 'Gagné'], lose: ['lose', 'Perdu'], push: ['push', 'Push'], blackjack: ['blackjack', 'BJ 3:2'] };
-    return map[p.hands[0] && p.hands[0].result] || ['push', '—'];
+    const map = {
+      win: ['win', 'trophy', 'Gagné'],
+      lose: ['lose', 'trendDown', 'Perdu'],
+      push: ['push', 'check', 'Push'],
+      blackjack: ['blackjack', 'spade', 'BJ 3:2'],
+    };
+    return map[p.hands[0] && p.hands[0].result] || ['push', 'check', '—'];
   }
-  if (!p.inRound) return ['waiting', 'Attend'];
+  if (!p.inRound) return ['waiting', 'clock', 'Attend'];
   const st = p.hands.map((h) => h.status);
-  if (st.every((s) => s === 'blackjack')) return ['blackjack', 'BJ'];
-  if (st.every((s) => s === 'bust')) return ['bust', 'Bust'];
-  if (st.every((s) => s !== 'playing' && s !== 'waiting')) return ['stand', 'Stand'];
-  return ['waiting', 'Attend'];
+  if (st.every((s) => s === 'blackjack')) return ['blackjack', 'spade', 'BJ'];
+  if (st.every((s) => s === 'bust')) return ['bust', 'burst', 'Bust'];
+  if (st.every((s) => s !== 'playing' && s !== 'waiting')) return ['stand', 'stand', 'Stand'];
+  return ['waiting', 'clock', 'Attend'];
 }
 
 function renderTable(me) {
@@ -687,6 +854,7 @@ function renderTable(me) {
       row.innerHTML = `
         <div class="t-head">
           <span class="t-avatar"></span>
+          <i class="chef-crown t-crown" data-icon="crown" hidden></i>
           <span class="t-name"></span>
           <span class="total-pill" hidden></span>
           <span class="badge"></span>
@@ -694,18 +862,20 @@ function renderTable(me) {
         <div class="hand mini"></div>`;
       els.tOthers.appendChild(row);
       otherEls.set(p.id, row);
+      hydrateIcons(row);
     }
-    row.querySelector('.t-avatar').textContent = p.avatar;
-    row.querySelector('.t-avatar').style.setProperty('--p-color', p.color);
-    row.querySelector('.t-name').textContent =
-      (p.id === state.hostPlayerId ? '👑 ' : '') + p.name;
+    const av = row.querySelector('.t-avatar');
+    av.innerHTML = avatarHtml(p.avatar);
+    av.style.setProperty('--p-color', p.color);
+    row.querySelector('.t-crown').hidden = p.id !== state.hostPlayerId;
+    row.querySelector('.t-name').textContent = p.name;
 
-    const [cls, txt] = otherStatusBadge(p);
+    // Le pré-choix des autres joueurs n'est volontairement pas affiché :
+    // le serveur ne le transmet qu'à son auteur.
+    const [cls, ico, txt] = otherStatusBadge(p);
     const badge = row.querySelector('.badge');
     badge.className = `badge ${cls}`;
-    const preset = p.presetAction && !p.isTurn && state.phase === 'playing'
-      ? ` 🕐 ${ACTION_LABELS[p.presetAction]}` : '';
-    badge.textContent = txt + preset;
+    setLabel(badge, ico, txt);
 
     // Toutes les mains à plat (les ids de cartes restent uniques après split)
     const cards = p.hands.flatMap((h) => h.cards);

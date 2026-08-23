@@ -28,6 +28,38 @@
 /* L'attribut hidden doit toujours gagner, même sur un élément avec display CSS. */
 [hidden] { display: none !important; }
 
+/* ============================== ICÔNES ==============================
+   SVG inline : hérite de la couleur et de la taille du texte, donc
+   remplace un emoji à l'identique côté mise en page. */
+
+.icon {
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+  vertical-align: -0.135em;
+  overflow: visible;
+}
+/* Traits pleins dans une icône par ailleurs en contour */
+.icon .i-solid { fill: currentColor; stroke: none; }
+/* Enseignes (piques, cœur…) : pleines, sans contour */
+.icon .i-solid[d] { stroke: none; }
+
+i[data-icon] {
+  display: inline-flex;
+  align-items: center;
+  font-style: normal;
+}
+
+/* Avatar : silhouette sombre sur la couleur choisie par le joueur */
+.avatar-icon {
+  width: 58%;
+  height: 58%;
+  color: rgba(0, 0, 0, 0.72);
+}
+
+/* Couronne du chef de table */
+.chef-crown { color: var(--gold-bright); font-size: 0.85em; }
+
 html, body {
   height: 100%;
   font-family: var(--font-ui);
@@ -161,14 +193,14 @@ h1, h2, .display { font-family: var(--font-display); letter-spacing: 0.03em; }
     linear-gradient(160deg, #7a1626 0%, #4c0d18 100%);
   border: 3px solid #f0e3bb;
 }
+/* Ornement du dos de carte : SVG (indépendant des polices installées) */
 .card-back::after {
-  content: '♛';
+  content: '';
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
-  color: rgba(243, 216, 120, 0.65);
-  font-size: calc(var(--card-h) * 0.3);
+  background: center / calc(var(--card-h) * 0.34) auto no-repeat
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23f3d878'%3E%3Cpath d='M12 2.6C9 6.7 4.4 9.2 4.4 13.3a4.6 4.6 0 0 0 6.7 4.1c-.3 1.8-1.2 2.9-2.6 3.6h7c-1.4-.7-2.3-1.8-2.6-3.6a4.6 4.6 0 0 0 6.7-4.1c0-4.1-4.6-6.6-7.6-10.7z'/%3E%3C/svg%3E");
+  opacity: 0.7;
 }
 
 /* ============================== JETONS ============================== */

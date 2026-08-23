@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="theme-color" content="#0b2818" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>♠</text></svg>" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23d4af37' d='M12 2.6C9 6.7 4.4 9.2 4.4 13.3a4.6 4.6 0 0 0 6.7 4.1c-.3 1.8-1.2 2.9-2.6 3.6h7c-1.4-.7-2.3-1.8-2.6-3.6a4.6 4.6 0 0 0 6.7-4.1c0-4.1-4.6-6.6-7.6-10.7z'/%3E%3C/svg%3E" />
   <title>Blackjack Royale — Joueur</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;800&family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
@@ -26,7 +26,9 @@
       <label class="field-label">Ta couleur</label>
       <div class="picker" id="color-picker"></div>
 
-      <button type="submit" class="cta big" id="join-btn">Prendre place 🎰</button>
+      <button type="submit" class="cta big" id="join-btn">
+        <i data-icon="play"></i> Prendre place
+      </button>
       <p class="form-error" id="join-error"></p>
     </form>
   </section>
@@ -34,12 +36,12 @@
   <!-- Reprise de partie détectée depuis la même adresse réseau -->
   <div class="modal-overlay" id="resume-modal" hidden>
     <div class="modal-card">
-      <h2 class="display gold-text">On dirait toi 👀</h2>
+      <h2 class="display gold-text"><i data-icon="eye"></i> On dirait toi</h2>
       <p class="modal-text">Un joueur avec cet appareil s'était déconnecté sans quitter la table :</p>
       <div class="resume-identity">
         <span class="resume-avatar" id="resume-avatar"></span>
         <span class="resume-name" id="resume-name"></span>
-        <span class="resume-balance">🪙 <span id="resume-balance">0</span></span>
+        <span class="resume-balance"><i data-icon="chip"></i> <span id="resume-balance">0</span></span>
       </div>
       <div class="modal-actions">
         <button type="button" class="cta" id="resume-yes">Reprendre cette partie</button>
@@ -52,8 +54,11 @@
   <section class="screen game" id="screen-game" hidden>
     <header class="game-head">
       <span class="me-avatar" id="me-avatar"></span>
-      <span class="me-name" id="me-name"></span>
-      <span class="me-balance" id="me-balance">🪙 0</span>
+      <span class="me-name">
+        <i class="chef-crown" id="me-crown" data-icon="crown" hidden></i>
+        <span id="me-name-text"></span>
+      </span>
+      <span class="me-balance"><i data-icon="chip"></i> <span id="me-balance">0</span></span>
     </header>
 
     <div class="status-line">
@@ -67,17 +72,17 @@
       <p class="panel-title">Mode de jeu</p>
       <div class="mode-row" id="mode-options">
         <button type="button" class="mode-btn" data-mode="table">
-          <span class="mode-icon">🖥️</span>
+          <span class="mode-icon"><i data-icon="monitor"></i></span>
           <span class="mode-label">Tous sur un écran</span>
           <span class="mode-sub">Un ordinateur affiche la table</span>
         </button>
         <button type="button" class="mode-btn" data-mode="phones">
-          <span class="mode-icon">📱</span>
+          <span class="mode-icon"><i data-icon="phone"></i></span>
           <span class="mode-label">Chacun son écran</span>
           <span class="mode-sub">Chaque téléphone affiche tout</span>
         </button>
         <button type="button" class="mode-btn" data-mode="both">
-          <span class="mode-icon">🖥️📱</span>
+          <span class="mode-icon"><i data-icon="both"></i></span>
           <span class="mode-label">Les deux</span>
           <span class="mode-sub">Écran commun + téléphones complets</span>
         </button>
@@ -90,7 +95,7 @@
 
     <!-- Re-cave : demande d'un joueur à sec + vote des autres -->
     <div class="panel rebuy" id="rebuy-panel" hidden>
-      <p class="panel-title">🪙 Re-cave</p>
+      <p class="panel-title"><i data-icon="chipPlus"></i> Re-cave</p>
       <div id="rebuy-body"></div>
     </div>
 
@@ -107,14 +112,16 @@
       </div>
       <div class="bet-actions">
         <button class="ghost-btn" id="bet-clear">Effacer</button>
-        <button class="ghost-btn allin-btn" id="bet-allin">🚀 All-in</button>
-        <button class="cta" id="bet-confirm" disabled>Miser ✓</button>
+        <button class="ghost-btn allin-btn" id="bet-allin">
+          <i data-icon="allIn"></i> <span id="bet-allin-label">All-in</span>
+        </button>
+        <button class="cta" id="bet-confirm" disabled>Miser</button>
       </div>
     </div>
 
     <!-- Assurance (le croupier montre un As) -->
     <div class="panel insurance" id="insurance-panel" hidden>
-      <p class="panel-title">🂡 Le croupier montre un As</p>
+      <p class="panel-title"><i data-icon="shield"></i> Le croupier montre un As</p>
       <p class="insurance-text" id="insurance-text"></p>
       <div class="insurance-actions" id="insurance-actions">
         <button type="button" class="ghost-btn" id="insurance-no">Non merci</button>
@@ -131,12 +138,12 @@
     <!-- La table : croupier + mains des autres joueurs (mode chacun son écran) -->
     <div class="panel table-panel" id="table-panel" hidden>
       <button type="button" class="table-toggle" id="table-toggle">
-        <span>♠ La table</span><span class="caret" id="table-caret">▾</span>
+        <span><i data-icon="spade"></i> La table</span><span class="caret" id="table-caret">▾</span>
       </button>
       <div id="table-body">
         <div class="t-dealer" id="t-dealer" hidden>
           <div class="t-head">
-            <span class="t-name">🂠 Croupier</span>
+            <span class="t-name"><i data-icon="cards"></i> Croupier</span>
             <span class="total-pill" id="t-dealer-total">?</span>
           </div>
           <div class="hand mini" id="t-dealer-hand"></div>
@@ -145,34 +152,74 @@
       </div>
     </div>
 
+    <!-- Actions sur la table : don de jetons, exclusion (chef de table) -->
+    <div class="table-actions" id="table-actions" hidden>
+      <button type="button" class="ghost-btn" id="give-btn">
+        <i data-icon="gift"></i> Donner des jetons
+      </button>
+      <button type="button" class="ghost-btn danger" id="kick-btn" hidden>
+        <i data-icon="userX"></i> Exclure un joueur
+      </button>
+    </div>
+
     <!-- Message central (résultat / attente) -->
     <div class="center-msg" id="center-msg"></div>
 
     <!-- Chef de table : lance les manches depuis le téléphone -->
-    <button class="cta big" id="phone-start" hidden>Lancer la manche 🎰</button>
+    <button class="cta big" id="phone-start" hidden>
+      <i data-icon="play"></i> <span id="phone-start-label">Lancer la manche</span>
+    </button>
     </main>
 
     <!-- Boutons d'action -->
     <p class="preset-hint" id="preset-hint" hidden></p>
     <footer class="actions" id="actions">
       <button class="action-btn hit" data-action="hit">
-        <span class="action-icon">🃏</span> Hit
+        <span class="action-icon"><i data-icon="hit"></i></span> Hit
       </button>
       <button class="action-btn stand" data-action="stand">
-        <span class="action-icon">✋</span> Stand
+        <span class="action-icon"><i data-icon="stand"></i></span> Stand
       </button>
       <button class="action-btn double" data-action="double">
-        <span class="action-icon">💰</span> Double
+        <span class="action-icon"><i data-icon="double"></i></span> Double
       </button>
       <button class="action-btn split" data-action="split">
-        <span class="action-icon">✂️</span> Split
+        <span class="action-icon"><i data-icon="split"></i></span> Split
       </button>
     </footer>
   </section>
 
+  <!-- Sélection d'un joueur : don de jetons ou exclusion -->
+  <div class="modal-overlay" id="pm-modal" hidden>
+    <div class="modal-card">
+      <h2 class="display gold-text" id="pm-title">Donner des jetons</h2>
+      <p class="modal-text" id="pm-hint"></p>
+      <div class="pm-list" id="pm-list"></div>
+      <div id="pm-amount-box" hidden>
+        <div class="bet-amount display" id="pm-amount">0</div>
+        <div class="chip-row">
+          <button type="button" class="chip c10" data-pm-chip="10">10</button>
+          <button type="button" class="chip c25" data-pm-chip="25">25</button>
+          <button type="button" class="chip c50" data-pm-chip="50">50</button>
+          <button type="button" class="chip c100" data-pm-chip="100">100</button>
+          <button type="button" class="chip c500" data-pm-chip="500">500</button>
+        </div>
+        <div class="pm-amount-actions">
+          <button type="button" class="ghost-btn" id="pm-clear">Effacer</button>
+          <button type="button" class="ghost-btn" id="pm-all">Tout donner</button>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="cta" id="pm-confirm" disabled>Confirmer</button>
+        <button type="button" class="ghost-btn" id="pm-cancel">Annuler</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast" hidden></div>
 
   <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/icons.js"></script>
   <script src="/js/shared.js"></script>
   <script src="/js/player.js"></script>
 </body>
