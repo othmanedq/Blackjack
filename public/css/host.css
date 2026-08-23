@@ -239,8 +239,8 @@ body {
 }
 .mode-box .mode-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
   margin: 0;
 }
 .mode-box .mode-btn {

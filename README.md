@@ -31,7 +31,20 @@ Avant de lancer la toute première manche, le **chef de table 👑** (le premier
 
 **📱 Chacun son écran** : aucun ordinateur nécessaire, personne n'a besoin de le regarder. Chaque téléphone affiche, en plus de sa propre main, le panneau **« La table »** : les cartes du croupier (la 2ᵉ reste face cachée jusqu'à son tour) et les mains, scores et statuts de tous les autres joueurs — repliable d'un tap pour une manette plus compacte. Le chef de table a le bouton « Lancer la manche » directement sur son téléphone.
 
+**🖥️📱 Les deux** : l'écran de la table fonctionne normalement ET chaque téléphone affiche en plus le panneau « La table » — le meilleur des deux mondes si un grand écran est disponible mais que tout le monde veut aussi suivre sur son téléphone.
+
 Tant qu'aucun mode n'est choisi, le bouton de lancement reste verrouillé sur les deux écrans — impossible de démarrer sans que la table se soit mise d'accord.
+
+## 🔌 Reconnexion & reprise après déconnexion
+
+Un joueur qui recharge la page ou perd le réseau quelques instants **retrouve automatiquement sa place** (même solde, même main en cours) dès que sa connexion revient — aucune action nécessaire.
+
+Si son navigateur perd sa session (stockage effacé, autre onglet, changement de navigateur) mais qu'il se reconnecte **depuis le même appareil** (même adresse réseau), une fenêtre lui propose :
+
+- **« Reprendre cette partie »** : il retrouve exactement son identité (pseudo, avatar, solde, main en cours).
+- **« Non, nouveau joueur »** : il rejoint avec une toute nouvelle identité, cave de départ standard.
+
+Cette proposition n'est offerte que dans les 20 minutes suivant la déconnexion, et un joueur déconnecté trop longtemps est de toute façon écarté de la table au lancement de la manche suivante.
 
 ## 🎮 Fonctionnement
 

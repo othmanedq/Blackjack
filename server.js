@@ -69,6 +69,12 @@ const game = new Game((state) => io.emit('state', state));
 // token socket -> playerId, pour gérer les déconnexions
 const socketPlayer = new Map();
 
+/** Adresse IPv4 normalisée du socket (retire le préfixe IPv4-mappée IPv6). */
+function clientIp(socket) {
+  const addr = socket.handshake.address || '';
+  return addr.replace(/^::ffff:/, '');
+}
+
 io.on('connection', (socket) => {
   // Chaque nouvel écran reçoit l'état courant immédiatement.
   socket.emit('state', game.publicState());
@@ -95,12 +101,34 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('player:join', ({ token, name, color, avatar } = {}, ack) => {
+  socket.on('player:join', ({ token, name, color, avatar, ignoreResume } = {}, ack) => {
     try {
       if (!token || typeof token !== 'string' || token.length > 64) {
         throw new Error('Session invalide, recharge la page.');
       }
+      const ip = clientIp(socket);
+      // Nouvel onglet / stockage effacé depuis une IP déjà vue récemment :
+      // on propose de reprendre l'ancienne place plutôt que d'en recréer une.
+      if (!ignoreResume && !game.players.has(token)) {
+        const candidate = game.findResumeCandidate(ip, token);
+        if (candidate) {
+          if (typeof ack === 'function') {
+            ack({
+              ok: false,
+              resumeCandidate: {
+                token: candidate.id,
+                name: candidate.name,
+                avatar: candidate.avatar,
+                color: candidate.color,
+                balance: candidate.balance,
+              },
+            });
+          }
+          return;
+        }
+      }
       const player = game.addPlayer({ token, name, color, avatar });
+      player.ip = ip;
       socketPlayer.set(socket.id, token);
       if (typeof ack === 'function') ack({ ok: true, id: player.id });
     } catch (err) {

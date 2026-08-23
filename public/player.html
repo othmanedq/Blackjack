@@ -31,6 +31,23 @@
     </form>
   </section>
 
+  <!-- Reprise de partie détectée depuis la même adresse réseau -->
+  <div class="modal-overlay" id="resume-modal" hidden>
+    <div class="modal-card">
+      <h2 class="display gold-text">On dirait toi 👀</h2>
+      <p class="modal-text">Un joueur avec cet appareil s'était déconnecté sans quitter la table :</p>
+      <div class="resume-identity">
+        <span class="resume-avatar" id="resume-avatar"></span>
+        <span class="resume-name" id="resume-name"></span>
+        <span class="resume-balance">🪙 <span id="resume-balance">0</span></span>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="cta" id="resume-yes">Reprendre cette partie</button>
+        <button type="button" class="ghost-btn" id="resume-no">Non, nouveau joueur</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ================== ÉCRAN JEU ================== -->
   <section class="screen game" id="screen-game" hidden>
     <header class="game-head">
@@ -58,6 +75,11 @@
           <span class="mode-icon">📱</span>
           <span class="mode-label">Chacun son écran</span>
           <span class="mode-sub">Chaque téléphone affiche tout</span>
+        </button>
+        <button type="button" class="mode-btn" data-mode="both">
+          <span class="mode-icon">🖥️📱</span>
+          <span class="mode-label">Les deux</span>
+          <span class="mode-sub">Écran commun + téléphones complets</span>
         </button>
       </div>
 

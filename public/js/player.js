@@ -15,6 +15,12 @@ const els = {
   avatarPicker: document.getElementById('avatar-picker'),
   colorPicker: document.getElementById('color-picker'),
   joinError: document.getElementById('join-error'),
+  resumeModal: document.getElementById('resume-modal'),
+  resumeAvatar: document.getElementById('resume-avatar'),
+  resumeName: document.getElementById('resume-name'),
+  resumeBalance: document.getElementById('resume-balance'),
+  resumeYes: document.getElementById('resume-yes'),
+  resumeNo: document.getElementById('resume-no'),
   meAvatar: document.getElementById('me-avatar'),
   meName: document.getElementById('me-name'),
   meBalance: document.getElementById('me-balance'),
@@ -101,8 +107,12 @@ els.joinForm.addEventListener('submit', (e) => {
   join();
 });
 
-function join() {
-  socket.emit('player:join', { token, ...profile }, (res) => {
+function join(opts = {}) {
+  socket.emit('player:join', { token, ...profile, ignoreResume: !!opts.ignoreResume }, (res) => {
+    if (res && res.resumeCandidate) {
+      showResumeModal(res.resumeCandidate);
+      return;
+    }
     if (!res || !res.ok) {
       els.joinError.textContent = (res && res.message) || 'Connexion impossible.';
       return;
@@ -116,6 +126,30 @@ function join() {
     sfx.chip();
     render();
   });
+}
+
+/* --------------------- reprise après déconnexion (même IP) --------------------- */
+
+function showResumeModal(candidate) {
+  els.resumeAvatar.textContent = candidate.avatar;
+  els.resumeAvatar.style.setProperty('--p-color', candidate.color);
+  els.resumeName.textContent = candidate.name;
+  els.resumeBalance.textContent = fmt.format(candidate.balance);
+  els.resumeModal.hidden = false;
+  els.resumeYes.onclick = () => {
+    sfx.click();
+    token = candidate.token;
+    localStorage.setItem('bj_token', token);
+    profile = { name: candidate.name, avatar: candidate.avatar, color: candidate.color };
+    localStorage.setItem('bj_profile', JSON.stringify(profile));
+    els.resumeModal.hidden = true;
+    join();
+  };
+  els.resumeNo.onclick = () => {
+    sfx.click();
+    els.resumeModal.hidden = true;
+    join({ ignoreResume: true });
+  };
 }
 
 // Reconnexion automatique (le serveur nous reconnaît grâce au token).
@@ -162,6 +196,12 @@ els.betConfirm.addEventListener('click', () => {
 });
 
 /* ------------------------------- mode de jeu ------------------------------ */
+
+const MODE_LABELS = { table: 'tous sur un écran', phones: 'chacun son écran', both: 'les deux' };
+// En mode 'both', les téléphones affichent la table ET l'écran commun fonctionne.
+function phoneUiEnabled() {
+  return state && (state.mode === 'phones' || state.mode === 'both');
+}
 
 els.modeOptions.addEventListener('click', (e) => {
   const btn = e.target.closest('button[data-mode]');
@@ -238,7 +278,7 @@ function renderConfig(me) {
   } else {
     els.configHint.textContent = isChef
       ? 'Tu es chef de table 👑 : ces réglages ne changeront plus après la première manche.'
-      : `Mode : ${state.mode === 'phones' ? 'chacun son écran' : 'tous sur un écran'} — cave à ${fmt.format(state.startingBalance)} jetons.`;
+      : `Mode : ${MODE_LABELS[state.mode]} — cave à ${fmt.format(state.startingBalance)} jetons.`;
   }
 }
 
@@ -344,7 +384,7 @@ function render() {
   // commun qui lance les manches).
   const isChef = state.hostPlayerId === me.id;
   els.meName.textContent = (isChef ? '👑 ' : '') + profile.name;
-  const canStart = isChef && state.mode === 'phones' && (state.phase === 'lobby' || state.phase === 'results');
+  const canStart = isChef && phoneUiEnabled() && (state.phase === 'lobby' || state.phase === 'results');
   els.phoneStart.hidden = !canStart;
   els.phoneStart.textContent = state.roundNumber ? 'Nouvelle manche 🎰' : 'Lancer la manche 🎰';
 
@@ -512,7 +552,7 @@ function otherStatusBadge(p) {
 function renderTable(me) {
   // En mode « tous sur un écran », l'écran commun affiche déjà le croupier
   // et les autres joueurs — pas besoin de dupliquer sur les téléphones.
-  const show = state.mode === 'phones' &&
+  const show = phoneUiEnabled() &&
     (state.dealer.cards.length > 0 || state.players.length > 1);
   els.tablePanel.hidden = !show;
   if (!show) return;

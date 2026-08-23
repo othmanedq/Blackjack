@@ -34,7 +34,8 @@ console.log('✓ valeurs de mains, blackjack naturel, sabot 6 jeux');
   assert.throws(() => game.setGameMode('poker'), /invalide/i);
   game.setGameMode('table');
   game.setGameMode('phones'); // reste modifiable tant que la partie n'a pas commencé
-  assert.strictEqual(game.mode, 'phones');
+  game.setGameMode('both'); // les deux écrans à la fois restent une option valide
+  assert.strictEqual(game.mode, 'both');
 
   // La cave ne se règle qu'avant la première manche.
   game.setStartingBalance(500);
@@ -90,6 +91,46 @@ console.log('✓ valeurs de mains, blackjack naturel, sabot 6 jeux');
   game.voteRebuy('d', true);
   assert.strictEqual(eve.balance, 500, 're-cave conclue sans le votant parti');
   console.log('✓ un joueur parti ne bloque pas un vote de re-cave en cours');
+})();
+
+// ---------------------------------------------------------- reprise (même IP)
+
+(() => {
+  const game = new Game(() => {}, { betTimeMs: 100000, turnTimeMs: 100000 });
+  const alice = game.addPlayer({ token: 'old-tok', name: 'Alice' });
+  alice.ip = '10.0.0.5';
+
+  // Toujours là juste après une déconnexion, jamais supprimée immédiatement.
+  game.disconnectPlayer('old-tok');
+  assert.strictEqual(game.players.has('old-tok'), true, 'un déconnecté doit rester visible');
+  assert.strictEqual(alice.connected, false);
+  assert.ok(alice.disconnectedAt, 'la date de déconnexion doit être enregistrée');
+
+  // Un nouvel onglet depuis la même IP la retrouve.
+  const found = game.findResumeCandidate('10.0.0.5', 'new-tok');
+  assert.strictEqual(found, alice, 'doit retrouver Alice par IP');
+  assert.strictEqual(game.findResumeCandidate('10.0.0.9', 'new-tok'), null, 'IP différente → rien');
+  assert.strictEqual(game.findResumeCandidate('10.0.0.5', 'old-tok'), null, 'exclut le token de la requête elle-même');
+
+  // Passé la fenêtre de reprise (20 min), on ne propose plus rien.
+  alice.disconnectedAt = Date.now() - 25 * 60 * 1000;
+  assert.strictEqual(game.findResumeCandidate('10.0.0.5', 'new-tok'), null, 'trop ancien → plus de proposition');
+  alice.disconnectedAt = Date.now();
+
+  // Reprendre = rejoindre avec l'ancien token : addPlayer reconnecte la même entrée.
+  const resumed = game.addPlayer({ token: 'old-tok', name: 'Alice' });
+  assert.strictEqual(resumed, alice, 'même joueur, pas une nouvelle entrée');
+  assert.strictEqual(resumed.connected, true);
+  assert.strictEqual(resumed.disconnectedAt, null);
+
+  // Le prochain lancement de manche purge quand même les déconnectés restants.
+  const bob = game.addPlayer({ token: 'bob', name: 'Bob' });
+  bob.ip = '10.0.0.6';
+  game.disconnectPlayer('bob');
+  game.setGameMode('table');
+  game.startBetting();
+  assert.strictEqual(game.players.has('bob'), false, 'un déconnecté non repris est purgé à la manche suivante');
+  console.log('✓ un joueur déconnecté reste identifiable par IP pour proposer une reprise');
 })();
 
 // ---------------------------------------------------------------------- split

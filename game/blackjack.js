@@ -103,6 +103,7 @@ class Game {
     const existing = this.players.get(token);
     if (existing) {
       existing.connected = true;
+      existing.disconnectedAt = null;
       if (name) existing.name = String(name).slice(0, 16);
       this.push();
       return existing;
@@ -117,9 +118,12 @@ class Game {
       avatar: avatar || '🂡',
       balance: this.opts.startingBalance,
       connected: true,
+      ip: null,             // pour reconnaître un appareil qui revient sans son token
+      disconnectedAt: null,
       hands: [],       // [{ cards, bet, status, doubled }]
       betPlaced: false,
       inRound: false,
+      presetAction: null, // action programmée à l'avance pour le prochain tour
       lastNet: 0,      // gain/perte de la dernière manche (affichage table)
       joinedAt: Date.now(),
     };
@@ -128,26 +132,45 @@ class Game {
     return player;
   }
 
+  /**
+   * Un joueur déconnecté n'est jamais supprimé immédiatement — il reste visible
+   * (badge « Déconnecté ») jusqu'à son retour ou jusqu'au prochain lancement de
+   * manche (startBetting purge alors tous les joueurs encore déconnectés).
+   * Cette rémanence permet aussi à requestResume() de le retrouver par IP.
+   */
   disconnectPlayer(token) {
     const p = this.players.get(token);
     if (!p) return;
     p.connected = false;
+    p.disconnectedAt = Date.now();
     // Un absent ne doit pas bloquer un vote de re-cave en cours.
     this.cleanupRebuyAfterLeave(token);
-    // Hors manche : on retire le joueur tout de suite.
-    if (!p.inRound || this.phase === 'lobby' || this.phase === 'results') {
-      if (!p.inRound) this.players.delete(token);
-    } else if (this.current && this.current.playerId === token) {
+    if (this.phase === 'playing' && this.current && this.current.playerId === token) {
       // Son tour : on stand automatiquement pour ne pas bloquer la table.
-      this.stand(token);
+      this.stand(token, true);
       return;
     }
     this.push();
   }
 
-  removeIfGone(token) {
-    const p = this.players.get(token);
-    if (p && !p.connected) this.players.delete(token);
+  /**
+   * Retrouve un joueur déconnecté récemment depuis la même adresse IP, pour
+   * proposer à un nouvel onglet/appareil de reprendre sa place plutôt que
+   * d'en créer une nouvelle. Fenêtre de 20 minutes ; au-delà, on ne propose
+   * plus la reprise (l'entrée sera de toute façon purgée au prochain
+   * lancement de manche).
+   */
+  findResumeCandidate(ip, excludeToken) {
+    if (!ip) return null;
+    const RESUME_WINDOW_MS = 20 * 60 * 1000;
+    const now = Date.now();
+    let best = null;
+    for (const p of this.players.values()) {
+      if (p.id === excludeToken || p.connected || p.ip !== ip) continue;
+      if (!p.disconnectedAt || now - p.disconnectedAt > RESUME_WINDOW_MS) continue;
+      if (!best || p.disconnectedAt > best.disconnectedAt) best = p;
+    }
+    return best;
   }
 
   // ---------------------------------------------------------------- manche
@@ -170,6 +193,7 @@ class Game {
       p.betPlaced = false;
       p.inRound = false;
       p.lastNet = 0;
+      p.presetAction = null;
       // Pas de re-cave automatique : un joueur à sec doit la demander
       // aux autres (unanimité) ou quitter la table.
     }
@@ -476,7 +500,7 @@ class Game {
     if (this.roundNumber > 0 || this.phase !== 'lobby') {
       throw new Error('Le mode de jeu se choisit avant la première manche.');
     }
-    if (mode !== 'table' && mode !== 'phones') {
+    if (mode !== 'table' && mode !== 'phones' && mode !== 'both') {
       throw new Error('Mode de jeu invalide.');
     }
     this.mode = mode;
