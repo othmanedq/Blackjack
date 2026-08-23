@@ -20,8 +20,16 @@ Puis :
 4. L'hôte clique sur **« Lancer la manche »** : les joueurs misent depuis leur téléphone, les cartes sont distribuées, et c'est parti !
 
 > 💡 `npm run dev` relance automatiquement le serveur à chaque modification (`node --watch`).
-> 💡 Port personnalisé : `PORT=8080 npm start`.
+> 💡 Port personnalisé : `PORT=8080 npm start`. Adresse forcée : `HOST_IP=192.168.1.42 npm start`.
 > 🧪 Test de la logique de jeu : `npm test`.
+
+## 🎭 Deux façons de jouer
+
+**Mode table de casino** (ordinateur + téléphones) : l'ordinateur affiche la table (`/host`) — croupier, mains de tous les joueurs, QR code — et chaque téléphone sert de manette.
+
+**Mode chacun son écran** (téléphones uniquement) : l'ordinateur ne sert qu'à faire tourner le serveur, personne n'a besoin de le regarder. Chaque téléphone affiche, en plus de sa propre main, le panneau **« La table »** : les cartes du croupier (la 2ᵉ reste face cachée jusqu'à son tour) et les mains, scores et statuts de tous les autres joueurs. Le **premier joueur connecté est le chef de table 👑** : c'est lui qui a le bouton « Lancer la manche » sur son téléphone. Le panneau « La table » est repliable d'un tap pour retrouver une manette compacte.
+
+Les deux modes coexistent naturellement : ouvrez `/host` sur un grand écran si vous en avez un, ignorez-le sinon.
 
 ## 🎮 Fonctionnement
 

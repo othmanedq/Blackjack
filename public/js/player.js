@@ -27,8 +27,13 @@ const els = {
   betClear: document.getElementById('bet-clear'),
   handsPanel: document.getElementById('hands-panel'),
   myHands: document.getElementById('my-hands'),
-  dealerMini: document.getElementById('dealer-mini'),
-  dealerMiniTotal: document.getElementById('dealer-mini-total'),
+  tablePanel: document.getElementById('table-panel'),
+  tableToggle: document.getElementById('table-toggle'),
+  tDealer: document.getElementById('t-dealer'),
+  tDealerHand: document.getElementById('t-dealer-hand'),
+  tDealerTotal: document.getElementById('t-dealer-total'),
+  tOthers: document.getElementById('t-others'),
+  phoneStart: document.getElementById('phone-start'),
   centerMsg: document.getElementById('center-msg'),
   actions: document.getElementById('actions'),
   toast: document.getElementById('toast'),
@@ -148,6 +153,25 @@ els.betConfirm.addEventListener('click', () => {
   });
 });
 
+/* -------------------- table repliable + chef de table -------------------- */
+
+let tableCollapsed = JSON.parse(localStorage.getItem('bj_table_collapsed') || 'false');
+els.tablePanel.classList.toggle('collapsed', tableCollapsed);
+els.tableToggle.addEventListener('click', () => {
+  tableCollapsed = !tableCollapsed;
+  localStorage.setItem('bj_table_collapsed', JSON.stringify(tableCollapsed));
+  els.tablePanel.classList.toggle('collapsed', tableCollapsed);
+  sfx.click();
+});
+
+els.phoneStart.addEventListener('click', () => {
+  sfx.unlock();
+  sfx.click();
+  socket.emit('player:newRound', (res) => {
+    if (res && !res.ok) showToast(res.message);
+  });
+});
+
 /* -------------------------------- actions -------------------------------- */
 
 els.actions.querySelectorAll('.action-btn').forEach((btn) => {
@@ -190,12 +214,23 @@ function render() {
   els.handsPanel.hidden = !showHands;
   if (showHands) renderHands(me);
 
+  renderTable(me);
+
+  // Chef de table : couronne + bouton pour lancer la manche depuis le téléphone
+  const isChef = state.hostPlayerId === me.id;
+  els.meName.textContent = (isChef ? '👑 ' : '') + profile.name;
+  const canStart = isChef && (state.phase === 'lobby' || state.phase === 'results');
+  els.phoneStart.hidden = !canStart;
+  els.phoneStart.textContent = state.roundNumber ? 'Nouvelle manche 🎰' : 'Lancer la manche 🎰';
+
   // Statut + message central
   let badge = ['waiting', 'En attente'];
   let msg = '';
   let msgCls = '';
   if (state.phase === 'lobby') {
-    msg = 'Bien installé ! 🛋️\nLa manche va bientôt être lancée sur la table.';
+    msg = isChef
+      ? 'Tu es le chef de table 👑\nLance la manche quand tout le monde a rejoint !'
+      : 'Bien installé ! 🛋️\nEn attente du lancement de la manche…';
   } else if (isBetting) {
     badge = me.betPlaced ? ['betting', 'Mise placée ✓'] : ['betting', 'Fais ton jeu 💰'];
     if (me.betPlaced) msg = 'Mise placée.\nEn attente des autres joueurs…';
@@ -308,14 +343,104 @@ function renderHands(me) {
     }
   });
 
-  // Carte visible du croupier, pour décider sans regarder l'écran principal
-  const show = state.dealer.cards.length > 0 && state.phase !== 'betting';
-  els.dealerMini.hidden = !show;
-  if (show) {
-    els.dealerMiniTotal.textContent = state.dealer.revealed
+}
+
+/* ------------------ la table : croupier + autres joueurs ------------------ */
+
+const otherEls = new Map(); // playerId -> élément de rangée
+
+function otherStatusBadge(p) {
+  if (!p.connected) return ['waiting', 'Déco.'];
+  if (state.phase === 'betting') return p.betPlaced ? ['betting', 'A misé ✓'] : ['betting', 'Mise…'];
+  if (p.isTurn) return ['turn', '🎯 Joue'];
+  if (state.phase === 'results' && p.inRound) {
+    const map = { win: ['win', 'Gagné'], lose: ['lose', 'Perdu'], push: ['push', 'Push'], blackjack: ['blackjack', 'BJ 3:2'] };
+    return map[p.hands[0] && p.hands[0].result] || ['push', '—'];
+  }
+  if (!p.inRound) return ['waiting', 'Attend'];
+  const st = p.hands.map((h) => h.status);
+  if (st.every((s) => s === 'blackjack')) return ['blackjack', 'BJ'];
+  if (st.every((s) => s === 'bust')) return ['bust', 'Bust'];
+  if (st.every((s) => s !== 'playing' && s !== 'waiting')) return ['stand', 'Stand'];
+  return ['waiting', 'Attend'];
+}
+
+function renderTable(me) {
+  const show = state.dealer.cards.length > 0 || state.players.length > 1;
+  els.tablePanel.hidden = !show;
+  if (!show) return;
+
+  // Croupier avec ses vraies cartes (la 2ᵉ reste face cachée jusqu'à son tour)
+  const showDealer = state.dealer.cards.length > 0;
+  els.tDealer.hidden = !showDealer;
+  if (showDealer) {
+    syncHand(els.tDealerHand, state.dealer.cards);
+    els.tDealerTotal.textContent = state.dealer.revealed
       ? state.dealer.total
       : `${state.dealer.total} + ?`;
+    els.tDealerTotal.classList.toggle('bust', state.dealer.bust);
+    els.tDealerTotal.classList.toggle('bj', state.dealer.blackjack);
   }
+
+  // Les autres joueurs
+  const others = state.players.filter((p) => p.id !== me.id);
+  const ids = new Set(others.map((p) => p.id));
+  for (const [id, el] of otherEls) {
+    if (!ids.has(id)) { el.remove(); otherEls.delete(id); }
+  }
+  let empty = els.tOthers.querySelector('.t-empty');
+  if (others.length === 0) {
+    if (!empty) {
+      empty = document.createElement('div');
+      empty.className = 't-empty';
+      empty.textContent = 'En attente d’autres joueurs…';
+      els.tOthers.appendChild(empty);
+    }
+    return;
+  }
+  if (empty) empty.remove();
+
+  others.forEach((p) => {
+    let row = otherEls.get(p.id);
+    if (!row) {
+      row = document.createElement('div');
+      row.className = 't-other';
+      row.innerHTML = `
+        <div class="t-head">
+          <span class="t-avatar"></span>
+          <span class="t-name"></span>
+          <span class="total-pill" hidden></span>
+          <span class="badge"></span>
+        </div>
+        <div class="hand mini"></div>`;
+      els.tOthers.appendChild(row);
+      otherEls.set(p.id, row);
+    }
+    row.querySelector('.t-avatar').textContent = p.avatar;
+    row.querySelector('.t-avatar').style.setProperty('--p-color', p.color);
+    row.querySelector('.t-name').textContent =
+      (p.id === state.hostPlayerId ? '👑 ' : '') + p.name;
+
+    const [cls, txt] = otherStatusBadge(p);
+    const badge = row.querySelector('.badge');
+    badge.className = `badge ${cls}`;
+    badge.textContent = txt;
+
+    // Toutes les mains à plat (les ids de cartes restent uniques après split)
+    const cards = p.hands.flatMap((h) => h.cards);
+    const pill = row.querySelector('.total-pill');
+    if (cards.length > 0) {
+      pill.hidden = false;
+      pill.textContent = p.hands.map((h) => h.total).join(' / ');
+      pill.classList.toggle('bust', p.hands.every((h) => h.status === 'bust'));
+      pill.classList.toggle('bj', p.hands.some((h) => h.status === 'blackjack'));
+    } else {
+      pill.hidden = true;
+    }
+    const handEl = row.querySelector('.hand');
+    handEl.style.display = cards.length ? '' : 'none';
+    syncHand(handEl, cards);
+  });
 }
 
 /* ------------------------- sons, vibreur, effets ------------------------- */

@@ -114,6 +114,18 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Mode « chacun son écran » : le chef de table lance les manches du téléphone.
+  socket.on('player:newRound', (ack) => {
+    respond(ack, () => {
+      const token = socketPlayer.get(socket.id);
+      if (!token) throw new Error('Rejoins la partie d’abord.');
+      if (token !== game.hostPlayerId()) {
+        throw new Error('Seul le chef de table peut lancer la manche.');
+      }
+      game.startBetting();
+    });
+  });
+
   socket.on('player:action', ({ type } = {}, ack) => {
     respond(ack, () => {
       const token = socketPlayer.get(socket.id);

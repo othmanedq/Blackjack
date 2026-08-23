@@ -44,6 +44,7 @@
       <div class="timerbar" id="me-timer" hidden><i></i></div>
     </div>
 
+    <main class="game-scroll">
     <!-- Zone mise -->
     <div class="panel" id="bet-panel" hidden>
       <p class="panel-title">Place ta mise</p>
@@ -64,14 +65,31 @@
     <!-- Mains du joueur -->
     <div class="panel my-hands" id="hands-panel" hidden>
       <div id="my-hands"></div>
-      <div class="dealer-mini" id="dealer-mini" hidden>
-        <span class="dealer-mini-label">Croupier</span>
-        <span class="total-pill" id="dealer-mini-total">?</span>
+    </div>
+
+    <!-- La table : croupier + mains des autres joueurs (mode chacun son écran) -->
+    <div class="panel table-panel" id="table-panel" hidden>
+      <button type="button" class="table-toggle" id="table-toggle">
+        <span>♠ La table</span><span class="caret" id="table-caret">▾</span>
+      </button>
+      <div id="table-body">
+        <div class="t-dealer" id="t-dealer" hidden>
+          <div class="t-head">
+            <span class="t-name">🂠 Croupier</span>
+            <span class="total-pill" id="t-dealer-total">?</span>
+          </div>
+          <div class="hand mini" id="t-dealer-hand"></div>
+        </div>
+        <div id="t-others"></div>
       </div>
     </div>
 
     <!-- Message central (résultat / attente) -->
     <div class="center-msg" id="center-msg"></div>
+
+    <!-- Chef de table : lance les manches depuis le téléphone -->
+    <button class="cta big" id="phone-start" hidden>Lancer la manche 🎰</button>
+    </main>
 
     <!-- Boutons d'action -->
     <footer class="actions" id="actions">

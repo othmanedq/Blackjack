@@ -200,19 +200,85 @@ html, body {
   color: rgba(245,233,200,0.85);
 }
 
-.dealer-mini {
+/* Zone centrale défilante : mise, mains, table, messages */
+.game-scroll {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  -webkit-overflow-scrolling: touch;
+}
+.game-scroll .center-msg { min-height: 3.2em; flex: 1 0 auto; }
+#phone-start { flex-shrink: 0; }
+
+/* --- panneau table : croupier + les autres joueurs --- */
+.table-panel { padding: 10px 12px 12px; }
+.table-toggle {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: none;
+  border: none;
+  color: rgba(245,233,200,0.75);
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 2px 2px 6px;
+  cursor: pointer;
+}
+.table-toggle .caret { transition: transform 0.2s; font-size: 1rem; }
+.table-panel.collapsed .caret { transform: rotate(-90deg); }
+.table-panel.collapsed #table-body { display: none; }
+
+.hand.mini { justify-content: flex-start; flex-wrap: wrap; min-height: 50px; }
+.hand.mini .card { --card-w: 34px; --card-h: 48px; }
+.hand.mini .card-front .corner { font-size: 11px; }
+.hand.mini .card-front .pip { font-size: 20px; }
+
+.t-dealer {
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.t-head {
+  display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 8px;
-  padding-top: 9px;
-  border-top: 1px solid rgba(255,255,255,0.08);
-  font-size: 0.82rem;
+  margin-bottom: 6px;
+}
+.t-name {
+  font-size: 0.88rem;
   font-weight: 700;
-  color: rgba(245,233,200,0.65);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.t-head .badge { margin-left: auto; font-size: 0.62rem; padding: 0.2em 0.6em; }
+.t-head .total-pill { font-size: 0.82rem; }
+
+.t-other { padding: 7px 0; }
+.t-other + .t-other { border-top: 1px solid rgba(255,255,255,0.06); }
+.t-other .t-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  font-size: 0.85rem;
+  background: var(--p-color, var(--gold));
+  flex-shrink: 0;
+}
+.t-empty {
+  text-align: center;
+  font-size: 0.85rem;
+  color: rgba(245,233,200,0.55);
+  padding: 6px 0;
 }
 
 .center-msg {

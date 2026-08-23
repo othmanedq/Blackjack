@@ -442,6 +442,17 @@ class Game {
     this.resultsEndsAt = null;
   }
 
+  /**
+   * Chef de table : le joueur connecté le plus ancien. En mode « chacun son
+   * écran » (sans ordinateur-table), c'est lui qui lance les manches.
+   */
+  hostPlayerId() {
+    const first = [...this.players.values()]
+      .filter((p) => p.connected)
+      .sort((a, b) => a.joinedAt - b.joinedAt)[0];
+    return first ? first.id : null;
+  }
+
   // ---------------------------------------------------------------- état public
 
   /** État diffusé à tous les écrans (la carte cachée du croupier est masquée). */
@@ -461,6 +472,7 @@ class Game {
       shoeCount: this.shoe.length,
       minBet: this.opts.minBet,
       serverNow: Date.now(),
+      hostPlayerId: this.hostPlayerId(),
       dealer: {
         cards: dealerCards,
         revealed,
