@@ -54,17 +54,24 @@ function isNaturalBlackjack(cards) {
   return cards.length === 2 && handValue(cards).total === 21;
 }
 
-function buildShoe(decks) {
+/**
+ * @param {number} decks — nombre de jeux dans le sabot
+ * @param {number} [gen] — numéro de sabot, préfixé aux identifiants de carte.
+ *   Sans lui, deux sabots successifs réutiliseraient les mêmes ids : côté
+ *   client, syncHand() déduplique par id et une carte au doublon ne serait
+ *   tout simplement pas dessinée (total qui monte, aucune carte visible).
+ */
+function buildShoe(decks, gen = 0) {
   const shoe = [];
   let uid = 0;
   for (let d = 0; d < decks; d++) {
     for (const suit of SUITS) {
       for (const rank of RANKS) {
-        shoe.push({ rank, suit, id: `c${d}-${uid++}` });
+        shoe.push({ rank, suit, id: `s${gen}-c${d}-${uid++}` });
       }
     }
   }
-  // Mélange Fisher–Yates
+  // Mélange Fisher–Yates : i décroissant, j tiré dans [0, i] (borne incluse).
   for (let i = shoe.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [shoe[i], shoe[j]] = [shoe[j], shoe[i]];
@@ -80,8 +87,9 @@ class Game {
   constructor(broadcast, options = {}) {
     this.opts = { ...DEFAULTS, ...options };
     this.broadcast = broadcast;
-    this.phase = 'lobby'; // lobby | betting | playing | dealer | results
-    this.shoe = buildShoe(this.opts.decks);
+    this.phase = 'lobby'; // lobby | betting | insurance | playing | dealer | results
+    this.shoeGen = 0; // incrémenté à chaque nouveau sabot (ids de carte uniques)
+    this.shoe = buildShoe(this.opts.decks, this.shoeGen);
     this.dealer = { cards: [], revealed: false };
     /** @type {Map<string, object>} playerId -> player */
     this.players = new Map();
@@ -228,9 +236,18 @@ class Game {
 
   // ---------------------------------------------------------------- manche
 
+  /** Une manche est engagée : la relancer effacerait des mises déjà payées. */
+  roundInProgress() {
+    return this.phase === 'betting' || this.phase === 'insurance' ||
+      this.phase === 'playing' || this.phase === 'dealer';
+  }
+
   /** L'hôte lance une manche : phase de mises. */
   startBetting() {
-    if (this.phase === 'betting' || this.phase === 'playing' || this.phase === 'dealer') return;
+    // 'insurance' doit être dans cette liste : sans ça, relancer une manche
+    // pendant la fenêtre d'assurance effaçait la main et les jetons déjà
+    // engagés (mise + assurance) n'étaient jamais réglés.
+    if (this.roundInProgress()) return;
     if (this.roundNumber === 0 && !this.mode) {
       throw new Error('Choisissez un mode de jeu avant de lancer la partie.');
     }
@@ -259,7 +276,7 @@ class Game {
       return;
     }
     if (this.shoe.length < this.opts.reshuffleThreshold) {
-      this.shoe = buildShoe(this.opts.decks);
+      this.newShoe();
     }
     this.roundNumber += 1;
     this.phase = 'betting';
@@ -296,8 +313,24 @@ class Game {
     }
   }
 
+  /** Nouveau sabot mélangé, avec des identifiants de carte encore inutilisés. */
+  newShoe() {
+    this.shoeGen += 1;
+    this.shoe = buildShoe(this.opts.decks, this.shoeGen);
+  }
+
   draw() {
-    if (this.shoe.length === 0) this.shoe = buildShoe(this.opts.decks);
+    if (this.shoe.length === 0) {
+      // Le seuil de re-mélange (reshuffleThreshold) rend ce cas quasi
+      // impossible en jeu réel : il faudrait consommer plus de 75 cartes en
+      // une seule manche. On ne peut pas planter pour autant, donc on
+      // reprend un sabot neuf — mais on le signale, car une manche servie
+      // par deux sabots différents ne devrait jamais arriver.
+      if (this.roundInProgress()) {
+        console.warn('[blackjack] sabot épuisé en pleine manche — nouveau sabot servi');
+      }
+      this.newShoe();
+    }
     return this.shoe.pop();
   }
 

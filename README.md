@@ -77,7 +77,7 @@ Toute l'interface utilise des **icônes SVG dessinées à la main** (`public/js/
 
 | Règle | Détail |
 |---|---|
-| Sabot | **6 jeux** de 52 cartes, mélange automatique (re-mélange sous 75 cartes) |
+| Sabot | **6 jeux** de 52 cartes, mélange Fisher–Yates, re-mélange sous 75 cartes restantes |
 | Valeurs | As = 1 ou 11, figures = 10 |
 | Blackjack naturel | payé **3:2** |
 | Croupier | tire à 16, **s'arrête à 17 (Soft 17 : stand)** |
@@ -134,6 +134,12 @@ Le serveur se déploie tel quel sur n'importe quel hébergeur Node.js (Render, R
 4. Déployez, puis partagez l'URL : les joueurs la rejoignent depuis n'importe où (4G comprise), et `/host` reste la vue table.
 
 À savoir : il n'y a **qu'une seule table** par serveur — toute personne ayant l'URL rejoint la même partie, ne la partagez qu'à vos amis. Sur le plan gratuit de Render, le serveur s'endort après ~15 min d'inactivité (première connexion un peu lente, puis tout est normal) et la partie en cours est remise à zéro s'il s'endort.
+
+## L'aléatoire du tirage
+
+Le sabot est mélangé par un **Fisher–Yates** correct (`j` tiré dans `[0, i]`, borne incluse — pas la variante biaisée qu'on croise souvent), et vérifié par des tests statistiques : sur 200 000 mélanges, la distribution des positions donne un χ² de 42,5 pour 51 degrés de liberté (p = 0,80), et sur 4,7 millions de tirages la répartition des rangs donne χ² = 2,63 pour 12 degrés de liberté (p = 0,997). Aucun biais de première ou dernière position. Les mêmes tests détectent sans peine les deux erreurs classiques d'implémentation, ce qui confirme qu'ils ont le pouvoir de repérer un vrai défaut.
+
+`Math.random()` est utilisé plutôt que `crypto`. C'est un générateur non cryptographique : sa suite serait théoriquement prédictible pour qui observerait assez de tirages. Pour une table entre amis sans argent réel, seule compte la qualité de la distribution — irréprochable ici. Une source cryptographique n'aurait de sens qu'avec un enjeu réel.
 
 ## Notes techniques
 

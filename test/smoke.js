@@ -93,6 +93,60 @@ console.log('✓ valeurs de mains, blackjack naturel, sabot 6 jeux');
   console.log('✓ un joueur parti ne bloque pas un vote de re-cave en cours');
 })();
 
+// --------------------------------------- sabot : ids uniques & garde de phase
+
+(() => {
+  // Deux sabots successifs ne doivent jamais partager d'identifiant de carte :
+  // côté client syncHand() déduplique par id, une carte au doublon ne serait
+  // pas dessinée (total qui monte sans carte visible).
+  const g = new Game(() => {});
+  const ids1 = new Set(g.shoe.map((c) => c.id));
+  g.newShoe();
+  const ids2 = g.shoe.map((c) => c.id);
+  assert.strictEqual(ids2.length, 312);
+  assert.strictEqual(new Set(ids2).size, 312, 'ids uniques dans un même sabot');
+  assert.strictEqual(ids2.filter((id) => ids1.has(id)).length, 0,
+    'aucun id partagé entre deux sabots successifs');
+  console.log('✓ identifiants de carte uniques d’un sabot à l’autre');
+
+  // draw() ne doit pas planter si le sabot se vide, et repart sur des ids neufs.
+  g.shoe = [];
+  const drawn = g.draw();
+  assert.ok(drawn && drawn.id, 'draw() sert une carte même sabot vide');
+  assert.strictEqual(g.shoe.length, 311);
+  console.log('✓ sabot vide : un sabot neuf est servi sans planter');
+
+  // Relancer une manche pendant la fenêtre d'assurance effaçait la main :
+  // les jetons engagés (mise + assurance) n'étaient jamais réglés.
+  const g2 = new Game(() => {}, { betTimeMs: 100000, insuranceTimeMs: 100000 });
+  const p = g2.addPlayer({ token: 'p', name: 'Paul' });
+  g2.setGameMode('table');
+  g2.startBetting();
+  g2.shoe = [c('5'), c('8'), c('A'), c('9')]; // croupier : As visible
+  g2.placeBet('p', 100);
+  assert.strictEqual(g2.phase, 'insurance');
+  g2.placeInsurance('p', 50);
+  // (un seul joueur : la phase se referme aussitôt — on reteste la garde
+  // directement sur chaque phase engagée)
+  for (const phase of ['betting', 'insurance', 'playing', 'dealer']) {
+    const g3 = new Game(() => {});
+    g3.mode = 'table';
+    g3.roundNumber = 1;
+    g3.phase = phase;
+    assert.strictEqual(g3.roundInProgress(), true, `${phase} doit compter comme manche engagée`);
+    g3.startBetting();
+    assert.strictEqual(g3.phase, phase, `startBetting ne doit rien faire en phase ${phase}`);
+    assert.strictEqual(g3.roundNumber, 1, `aucune manche relancée en phase ${phase}`);
+  }
+  for (const phase of ['lobby', 'results']) {
+    const g4 = new Game(() => {});
+    g4.mode = 'table';
+    g4.phase = phase;
+    assert.strictEqual(g4.roundInProgress(), false, `${phase} n'est pas une manche engagée`);
+  }
+  console.log('✓ une manche engagée (assurance incluse) ne peut pas être relancée');
+})();
+
 // ---------------------------------------------------------- reprise (même IP)
 
 (() => {
@@ -273,7 +327,8 @@ console.log('✓ valeurs de mains, blackjack naturel, sabot 6 jeux');
   dan.inRound = true;
   dan.hands = [{ cards: [c('9'), c('8')], bet: 100, status: 'playing', doubled: false }];
   game2.current = { playerId: 'd', handIndex: 0 };
-  game2.shoe = [c('2')]; // carte tirée par le hit programmé de Carl
+  // Carte tirée par le hit programmé de Carl, avec de la réserve derrière.
+  game2.shoe = [c('4'), c('6'), c('2')];
   game2.setPresetAction('c', 'hit');
 
   game2.stand('d');
@@ -319,7 +374,8 @@ console.log('✓ valeurs de mains, blackjack naturel, sabot 6 jeux');
   game.phase = 'playing';
   game.current = { playerId: 'a', handIndex: 0 };
   // 1er split tirera d'abord un 8 (pour permettre le resplit), puis un 2.
-  game.shoe = [c('2', '♣'), c('8', '♦')];
+  // (cartes de réserve en tête : le sabot ne doit pas se vider en cours de test)
+  game.shoe = [c('4'), c('6'), c('7'), c('2', '♣'), c('8', '♦')];
 
   game.split('a');
   assert.strictEqual(alice.hands.length, 2, 'le split doit créer une 2ᵉ main');

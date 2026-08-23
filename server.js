@@ -126,6 +126,9 @@ io.on('connection', (socket) => {
 
   socket.on('host:newRound', () => {
     try {
+      // Vérifié ici aussi : l'état est autoritaire côté serveur, l'interface
+      // qui masque le bouton n'est qu'un confort.
+      if (game.roundInProgress()) throw new Error('Une manche est déjà en cours.');
       game.startBetting();
     } catch (err) {
       socket.emit('game:error', { message: err.message });
@@ -282,6 +285,7 @@ io.on('connection', (socket) => {
       if (token !== game.hostPlayerId()) {
         throw new Error('Seul le chef de table peut lancer la manche.');
       }
+      if (game.roundInProgress()) throw new Error('Une manche est déjà en cours.');
       game.startBetting();
     });
   });
