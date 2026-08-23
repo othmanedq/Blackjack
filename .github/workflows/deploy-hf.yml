@@ -1,0 +1,24 @@
+name: Déployer sur Hugging Face Spaces
+
+on:
+  workflow_dispatch:
+    inputs:
+      space_name:
+        description: Nom du Space (défaut blackjack-royale)
+        required: false
+        default: blackjack-royale
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install --quiet huggingface_hub
+      - name: Déployer le Space
+        run: python deploy/hf/deploy.py
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          SPACE_NAME: ${{ inputs.space_name }}
