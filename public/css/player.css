@@ -331,6 +331,69 @@ html, body {
 .action-btn.double { background: linear-gradient(180deg, #f1c40f, #b7950b); color: #1a1a06; }
 .action-btn.split  { background: linear-gradient(180deg, #3498db, #21618c); }
 
+/* --- cave de départ & re-cave --- */
+.stake-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin: 10px 0 8px;
+}
+.stake-btn {
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: 0.98rem;
+  padding: 10px 14px;
+  border-radius: 11px;
+  border: 2px solid rgba(212,175,55,0.35);
+  background: rgba(0,0,0,0.3);
+  color: var(--cream);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.stake-btn.selected {
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+  color: #14200f;
+  border-color: transparent;
+}
+.stake-btn:disabled { opacity: 0.55; pointer-events: none; }
+.stake-btn.selected:disabled { opacity: 1; }
+.config-hint {
+  text-align: center;
+  font-size: 0.82rem;
+  color: rgba(245,233,200,0.65);
+  line-height: 1.35;
+}
+
+.rebuy { border-color: rgba(212,175,55,0.55); }
+.rebuy-text {
+  text-align: center;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  margin: 8px 0 4px;
+}
+.rebuy-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+.rebuy-actions button {
+  flex: 1;
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: 1.05rem;
+  padding: 13px 8px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+.rebuy-actions button:active { transform: scale(0.96); }
+.rebuy-yes { background: linear-gradient(180deg, #2ecc71, #1d8a4a); }
+.rebuy-no  { background: linear-gradient(180deg, #e74c3c, #a93226); }
+.rebuy-request { width: 100%; margin-top: 10px; }
+
 /* --- toast d'erreur --- */
 .toast {
   position: fixed;

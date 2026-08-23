@@ -27,6 +27,11 @@ const els = {
   betClear: document.getElementById('bet-clear'),
   handsPanel: document.getElementById('hands-panel'),
   myHands: document.getElementById('my-hands'),
+  configPanel: document.getElementById('config-panel'),
+  stakeOptions: document.getElementById('stake-options'),
+  configHint: document.getElementById('config-hint'),
+  rebuyPanel: document.getElementById('rebuy-panel'),
+  rebuyBody: document.getElementById('rebuy-body'),
   tablePanel: document.getElementById('table-panel'),
   tableToggle: document.getElementById('table-toggle'),
   tDealer: document.getElementById('t-dealer'),
@@ -40,9 +45,11 @@ const els = {
 };
 
 // Identité stable pour survivre aux rafraîchissements / reconnexions.
-const token =
-  localStorage.getItem('bj_token') ||
-  (crypto.randomUUID ? crypto.randomUUID() : `p-${Date.now()}-${Math.floor(Math.random() * 1e9)}`);
+// (let : après une exclusion de la table, on repart avec une identité neuve.)
+function newToken() {
+  return crypto.randomUUID ? crypto.randomUUID() : `p-${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
+}
+let token = localStorage.getItem('bj_token') || newToken();
 localStorage.setItem('bj_token', token);
 
 let profile = JSON.parse(localStorage.getItem('bj_profile') || 'null');
@@ -153,6 +160,93 @@ els.betConfirm.addEventListener('click', () => {
   });
 });
 
+/* ---------------------- cave de départ & re-cave ------------------------- */
+
+const STAKE_PRESETS = [100, 500, 1000, 2000, 5000, 10000];
+
+els.stakeOptions.addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-stake]');
+  if (!btn) return;
+  sfx.click();
+  socket.emit('player:setStartingBalance', { amount: Number(btn.dataset.stake) }, (res) => {
+    if (res && !res.ok) showToast(res.message);
+    else sfx.chip();
+  });
+});
+
+els.rebuyBody.addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-rebuy]');
+  if (!btn) return;
+  sfx.click();
+  const action = btn.dataset.rebuy;
+  if (action === 'request') {
+    socket.emit('player:requestRebuy', (res) => {
+      if (res && !res.ok) showToast(res.message);
+    });
+  } else {
+    socket.emit('player:voteRebuy', { accept: action === 'yes' }, (res) => {
+      if (res && !res.ok) showToast(res.message);
+    });
+  }
+});
+
+// Re-cave refusée : on quitte la table, avec une identité neuve pour revenir.
+socket.on('player:kicked', ({ message } = {}) => {
+  joined = false;
+  pendingBet = 0;
+  token = newToken();
+  localStorage.setItem('bj_token', token);
+  els.screenGame.hidden = true;
+  els.screenLobby.hidden = false;
+  els.joinError.textContent = message || 'Tu as quitté la table.';
+  sfx.lose();
+  if (navigator.vibrate) navigator.vibrate(300);
+});
+
+function renderConfig(me) {
+  const show = state.canConfigure;
+  els.configPanel.hidden = !show;
+  if (!show) return;
+  const isChef = state.hostPlayerId === me.id;
+  els.stakeOptions.innerHTML = STAKE_PRESETS.map(
+    (v) => `<button type="button" class="stake-btn${v === state.startingBalance ? ' selected' : ''}"
+      data-stake="${v}" ${isChef ? '' : 'disabled'}>${fmt.format(v)}</button>`
+  ).join('');
+  els.configHint.textContent = isChef
+    ? 'Tu es chef de table 👑 : choisis la cave de chacun. Elle ne changera plus après la première manche.'
+    : `Le chef de table a fixé la cave à ${fmt.format(state.startingBalance)} jetons.`;
+}
+
+function renderRebuy(me) {
+  const r = state.rebuyRequest;
+  const isBroke = me.balance < state.minBet;
+  let html = '';
+  if (r && r.playerId === me.id) {
+    html = `<p class="rebuy-text">Demande envoyée 🙏<br>
+      <strong>${r.approved}/${r.total}</strong> joueur(s) ont accepté — il faut l'unanimité.<br>
+      <small>Un seul refus et tu quittes la table.</small></p>`;
+  } else if (r && r.awaiting.includes(me.id)) {
+    html = `<p class="rebuy-text"><strong>${r.playerName}</strong> n'a plus de jetons et demande
+      une re-cave de <strong>${fmt.format(r.amount)}</strong>.<br>
+      <small>Unanimité requise — un refus l'exclut de la table.</small></p>
+      <div class="rebuy-actions">
+        <button type="button" class="rebuy-yes" data-rebuy="yes">✅ Accepter</button>
+        <button type="button" class="rebuy-no" data-rebuy="no">❌ Refuser</button>
+      </div>`;
+  } else if (r) {
+    html = `<p class="rebuy-text">Re-cave de <strong>${r.playerName}</strong> :
+      ${r.approved}/${r.total} ont accepté…</p>`;
+  } else if (isBroke && !me.inRound) {
+    html = `<p class="rebuy-text">Plus de jetons ! 💸<br>Demande une re-cave aux autres joueurs,
+      ou quitte la table.</p>
+      <button type="button" class="cta rebuy-request" data-rebuy="request">
+        🙏 Demander une re-cave (${fmt.format(state.startingBalance)})
+      </button>`;
+  }
+  els.rebuyPanel.hidden = !html;
+  els.rebuyBody.innerHTML = html;
+}
+
 /* -------------------- table repliable + chef de table -------------------- */
 
 let tableCollapsed = JSON.parse(localStorage.getItem('bj_table_collapsed') || 'false');
@@ -205,10 +299,14 @@ function render() {
   const myTurn = me.isTurn;
   const activeHand = myTurn && me.hands[me.turnHandIndex] ? me.hands[me.turnHandIndex] : null;
   const isBetting = state.phase === 'betting';
-  const showBetPanel = isBetting && !me.betPlaced && me.connected;
+  const isBroke = me.balance < state.minBet;
+  const showBetPanel = isBetting && !me.betPlaced && me.connected && !isBroke;
 
   els.betPanel.hidden = !showBetPanel;
   if (showBetPanel) renderBet(me);
+
+  renderConfig(me);
+  renderRebuy(me);
 
   const showHands = me.inRound && me.hands.length > 0 && me.hands[0].cards.length > 0;
   els.handsPanel.hidden = !showHands;
@@ -232,8 +330,14 @@ function render() {
       ? 'Tu es le chef de table 👑\nLance la manche quand tout le monde a rejoint !'
       : 'Bien installé ! 🛋️\nEn attente du lancement de la manche…';
   } else if (isBetting) {
-    badge = me.betPlaced ? ['betting', 'Mise placée ✓'] : ['betting', 'Fais ton jeu 💰'];
-    if (me.betPlaced) msg = 'Mise placée.\nEn attente des autres joueurs…';
+    if (me.betPlaced) {
+      badge = ['betting', 'Mise placée ✓'];
+      msg = 'Mise placée.\nEn attente des autres joueurs…';
+    } else if (isBroke) {
+      badge = ['lose', 'À sec 🪙'];
+    } else {
+      badge = ['betting', 'Fais ton jeu 💰'];
+    }
   } else if (state.phase === 'playing') {
     if (!me.inRound) {
       msg = 'Tu ne joues pas cette manche.\nTu pourras miser à la prochaine !';
@@ -351,7 +455,10 @@ const otherEls = new Map(); // playerId -> élément de rangée
 
 function otherStatusBadge(p) {
   if (!p.connected) return ['waiting', 'Déco.'];
-  if (state.phase === 'betting') return p.betPlaced ? ['betting', 'A misé ✓'] : ['betting', 'Mise…'];
+  if (state.phase === 'betting') {
+    if (p.betPlaced) return ['betting', 'A misé ✓'];
+    return p.balance < state.minBet ? ['lose', 'À sec'] : ['betting', 'Mise…'];
+  }
   if (p.isTurn) return ['turn', '🎯 Joue'];
   if (state.phase === 'results' && p.inRound) {
     const map = { win: ['win', 'Gagné'], lose: ['lose', 'Perdu'], push: ['push', 'Push'], blackjack: ['blackjack', 'BJ 3:2'] };
@@ -493,7 +600,8 @@ function tick() {
   let endsAt = null;
   let duration = 30000;
   if (state && me) {
-    if (state.phase === 'betting' && !me.betPlaced && state.betEndsAt) endsAt = state.betEndsAt;
+    if (state.phase === 'betting' && !me.betPlaced && state.betEndsAt &&
+        me.balance >= (state.minBet || 10)) endsAt = state.betEndsAt;
     else if (me.isTurn && state.turnEndsAt) endsAt = state.turnEndsAt;
   }
   if (endsAt) {

@@ -45,6 +45,19 @@
     </div>
 
     <main class="game-scroll">
+    <!-- Cave de départ (avant la première manche, réglée par le chef) -->
+    <div class="panel" id="config-panel" hidden>
+      <p class="panel-title">Cave de départ — pour tous les joueurs</p>
+      <div class="stake-row" id="stake-options"></div>
+      <p class="config-hint" id="config-hint"></p>
+    </div>
+
+    <!-- Re-cave : demande d'un joueur à sec + vote des autres -->
+    <div class="panel rebuy" id="rebuy-panel" hidden>
+      <p class="panel-title">🪙 Re-cave</p>
+      <div id="rebuy-body"></div>
+    </div>
+
     <!-- Zone mise -->
     <div class="panel" id="bet-panel" hidden>
       <p class="panel-title">Place ta mise</p>

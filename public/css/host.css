@@ -224,6 +224,30 @@ body {
   word-break: break-all;
 }
 
+.stake-box {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  text-align: left;
+}
+.stake-box label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(245,233,200,0.65);
+}
+.stake-box select {
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(212,175,55,0.4);
+  background: rgba(0,0,0,0.4);
+  color: var(--gold-bright);
+}
+
 .cta {
   font-family: var(--font-ui);
   font-weight: 800;

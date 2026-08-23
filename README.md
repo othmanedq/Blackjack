@@ -58,7 +58,20 @@ Les deux modes coexistent naturellement : ouvrez `/host` sur un grand écran si 
 | Double Down | sur les 2 premières cartes, si le solde le permet |
 | Split | sur une paire de même rang (1 split max par manche) |
 | Timers | 30 s pour miser, 30 s par tour (stand automatique) |
-| Jetons | cave de départ **1 000**, re-cave automatique à sec |
+| Jetons | cave de départ choisie par le chef de table avant la 1ère manche, **pas de reset automatique** |
+
+## 🪙 Cave de départ & re-cave
+
+Avant de lancer la toute première manche, le **chef de table 👑** (ou l'écran table) choisit la cave de départ (100 à 10 000 jetons) — elle s'applique à tous les joueurs présents. Une fois la première manche lancée, ce réglage est **verrouillé** : les soldes vivent leur vie, sans reset automatique entre les manches.
+
+Si un joueur se retrouve à sec (solde sous la mise minimum) :
+
+- Il peut **demander une re-cave** depuis son téléphone.
+- Tous les **autres** joueurs votent **Accepter / Refuser**.
+- **Unanimité requise** : si tout le monde accepte, il est recrédité de la cave de départ.
+- **Un seul refus** : il est **exclu de la table**. Pour rejouer, il doit revenir comme un **nouveau joueur** (nouveau pseudo/avatar possible, cave de départ standard).
+
+Un joueur qui se déconnecte pendant un vote ne le bloque pas — l'unanimité ne porte que sur les votants restants.
 
 ## 🗂️ Structure du projet
 

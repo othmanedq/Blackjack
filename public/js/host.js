@@ -18,6 +18,8 @@ const els = {
   qrImg: document.getElementById('qr-img'),
   joinUrl: document.getElementById('join-url'),
   startBtn: document.getElementById('start-btn'),
+  stakeBox: document.getElementById('stake-box'),
+  stakeSelect: document.getElementById('stake-select'),
   collapseBtn: document.getElementById('collapse-btn'),
   expandBtn: document.getElementById('expand-btn'),
   muteBtn: document.getElementById('mute-btn'),
@@ -48,6 +50,11 @@ els.startBtn.addEventListener('click', () => {
   sfx.click();
   socket.emit('host:newRound');
 });
+els.stakeSelect.addEventListener('change', () => {
+  sfx.chip();
+  socket.emit('host:setStartingBalance', { amount: Number(els.stakeSelect.value) });
+});
+socket.on('game:error', ({ message }) => console.warn('Erreur de jeu :', message));
 els.collapseBtn.addEventListener('click', () => setPanel('hidden'));
 els.expandBtn.addEventListener('click', () => setPanel('visible'));
 els.muteBtn.addEventListener('click', () => {
@@ -95,6 +102,9 @@ function render() {
   if (state.phase === 'playing' && current) {
     const handNote = current.hands.length > 1 ? ` (main ${state.current.handIndex + 1})` : '';
     els.phaseMsg.textContent = `🎯 ${current.name}${handNote}, à toi de jouer !`;
+  } else if (state.rebuyRequest) {
+    const r = state.rebuyRequest;
+    els.phaseMsg.textContent = `🪙 ${r.playerName} demande une re-cave de ${fmt.format(r.amount)} — ${r.approved}/${r.total} ont accepté (unanimité requise)`;
   } else if (state.phase === 'results') {
     els.phaseMsg.textContent = '🏁 Manche terminée — les mises rouvrent dans un instant…';
   } else {
@@ -113,6 +123,12 @@ function render() {
     state.players.length > 0 && (state.phase === 'lobby' || state.phase === 'results');
   els.startBtn.disabled = !canStart;
   els.startBtn.textContent = state.roundNumber ? 'Nouvelle manche' : 'Lancer la manche';
+
+  // Cave de départ : réglable uniquement avant la première manche.
+  els.stakeBox.hidden = !state.canConfigure;
+  if (state.canConfigure && document.activeElement !== els.stakeSelect) {
+    els.stakeSelect.value = String(state.startingBalance);
+  }
 
   const isLobby = state.phase === 'lobby';
   let show;
@@ -190,7 +206,9 @@ function renderSeat(p) {
   if (!p.connected) {
     badge = ['waiting', 'Déconnecté'];
   } else if (state.phase === 'betting') {
-    badge = p.betPlaced ? ['betting', 'Mise placée ✓'] : ['betting', 'Choisit sa mise…'];
+    if (p.betPlaced) badge = ['betting', 'Mise placée ✓'];
+    else if (p.balance < state.minBet) badge = ['lose', 'À sec 🪙'];
+    else badge = ['betting', 'Choisit sa mise…'];
   } else if (p.isTurn) {
     badge = ['turn', '🎯 Tour en cours'];
   } else if (state.phase === 'results' && p.inRound) {

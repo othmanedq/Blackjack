@@ -116,6 +116,57 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Cave de départ, réglée avant la première manche (écran table ou chef).
+  socket.on('host:setStartingBalance', ({ amount } = {}) => {
+    try {
+      game.setStartingBalance(amount);
+    } catch (err) {
+      socket.emit('game:error', { message: err.message });
+    }
+  });
+
+  socket.on('player:setStartingBalance', ({ amount } = {}, ack) => {
+    respond(ack, () => {
+      const token = socketPlayer.get(socket.id);
+      if (!token) throw new Error('Rejoins la partie d’abord.');
+      if (token !== game.hostPlayerId()) {
+        throw new Error('Seul le chef de table peut régler la cave de départ.');
+      }
+      game.setStartingBalance(amount);
+    });
+  });
+
+  // Re-cave : demande d'un joueur à sec, votée à l'unanimité par les autres.
+  socket.on('player:requestRebuy', (ack) => {
+    respond(ack, () => {
+      const token = socketPlayer.get(socket.id);
+      if (!token) throw new Error('Rejoins la partie d’abord.');
+      game.requestRebuy(token);
+    });
+  });
+
+  socket.on('player:voteRebuy', ({ accept } = {}, ack) => {
+    try {
+      const token = socketPlayer.get(socket.id);
+      if (!token) throw new Error('Rejoins la partie d’abord.');
+      const result = game.voteRebuy(token, !!accept);
+      if (result.kicked) {
+        // Le refus exclut le demandeur : on prévient son téléphone.
+        for (const [sid, t] of [...socketPlayer]) {
+          if (t === result.kicked) {
+            io.to(sid).emit('player:kicked', {
+              message: 'La re-cave a été refusée : tu quittes la table. Tu peux revenir comme nouveau joueur.',
+            });
+            socketPlayer.delete(sid);
+          }
+        }
+      }
+      if (typeof ack === 'function') ack({ ok: true });
+    } catch (err) {
+      if (typeof ack === 'function') ack({ ok: false, message: err.message });
+    }
+  });
+
   // Mode « chacun son écran » : le chef de table lance les manches du téléphone.
   socket.on('player:newRound', (ack) => {
     respond(ack, () => {

@@ -47,6 +47,17 @@
     <p class="join-hint">Scannez avec votre téléphone<br /><small>(même réseau Wi-Fi)</small></p>
     <div class="qr-frame"><img id="qr-img" alt="QR code pour rejoindre" /></div>
     <code class="join-url" id="join-url">http://…</code>
+    <div class="stake-box" id="stake-box" hidden>
+      <label for="stake-select">Cave de départ (tous)</label>
+      <select id="stake-select">
+        <option value="100">100 jetons</option>
+        <option value="500">500 jetons</option>
+        <option value="1000">1 000 jetons</option>
+        <option value="2000">2 000 jetons</option>
+        <option value="5000">5 000 jetons</option>
+        <option value="10000">10 000 jetons</option>
+      </select>
+    </div>
     <button class="cta" id="start-btn" disabled>Lancer la manche</button>
     <button class="ghost-btn" id="collapse-btn">Réduire ⌃</button>
   </aside>

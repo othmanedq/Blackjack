@@ -21,6 +21,69 @@ assert.strictEqual(isNaturalBlackjack([c('7'), c('7'), c('7')]), false);
 assert.strictEqual(buildShoe(6).length, 312);
 console.log('✓ valeurs de mains, blackjack naturel, sabot 6 jeux');
 
+// ------------------------------------------------- cave de départ & re-cave
+
+(() => {
+  const game = new Game(() => {}, { betTimeMs: 100000, turnTimeMs: 100000 });
+  const alice = game.addPlayer({ token: 'a', name: 'Alice' });
+  const bob = game.addPlayer({ token: 'b', name: 'Bob' });
+  const carl = game.addPlayer({ token: 'c', name: 'Carl' });
+
+  // La cave ne se règle qu'avant la première manche.
+  game.setStartingBalance(500);
+  assert.strictEqual(alice.balance, 500);
+  assert.strictEqual(bob.balance, 500);
+  assert.strictEqual(carl.balance, 500);
+
+  game.startBetting();
+  assert.throws(() => game.setStartingBalance(2000), /avant la première manche/i);
+
+  game.clearTimers();
+  alice.balance = 0; // simule un joueur qui a tout perdu
+
+  assert.throws(() => game.requestRebuy('b'), /encore des jetons/i);
+
+  game.requestRebuy('a');
+  assert.ok(game.rebuyRequest, 'une demande de re-cave doit exister');
+  assert.deepStrictEqual([...game.rebuyRequest.pending].sort(), ['b', 'c']);
+
+  assert.throws(() => game.voteRebuy('a', true), /propre demande/i);
+
+  // Bob accepte, la demande reste en attente de Carl.
+  game.voteRebuy('b', true);
+  assert.ok(game.rebuyRequest, 'toujours en attente de Carl');
+  assert.strictEqual(alice.balance, 0, 'pas de re-cave avant unanimité');
+
+  // Carl refuse : Alice est exclue de la table.
+  const result = game.voteRebuy('c', false);
+  assert.strictEqual(result.kicked, 'a');
+  assert.strictEqual(game.players.has('a'), false, 'Alice doit avoir quitté la table');
+  assert.strictEqual(game.rebuyRequest, null);
+  console.log('✓ re-cave refusée → le demandeur est exclu de la table');
+
+  // Nouveau scénario : re-cave acceptée à l'unanimité.
+  const dan = game.addPlayer({ token: 'd', name: 'Dan' });
+  dan.balance = 0;
+  game.requestRebuy('d');
+  game.voteRebuy('b', true);
+  game.voteRebuy('c', true);
+  assert.strictEqual(dan.balance, 500, 'la re-cave doit créditer la cave de départ');
+  assert.strictEqual(game.rebuyRequest, null);
+  console.log('✓ re-cave acceptée à l’unanimité → le joueur est recrédité');
+
+  // Un joueur qui se déconnecte pendant un vote ne doit pas le bloquer :
+  // l'unanimité ne porte plus que sur les votants restants.
+  const eve = game.addPlayer({ token: 'e', name: 'Eve' });
+  eve.balance = 0;
+  game.requestRebuy('e');
+  assert.deepStrictEqual([...game.rebuyRequest.pending].sort(), ['b', 'c', 'd']);
+  game.disconnectPlayer('c'); // Carl part avant de voter
+  game.voteRebuy('b', true);
+  game.voteRebuy('d', true);
+  assert.strictEqual(eve.balance, 500, 're-cave conclue sans le votant parti');
+  console.log('✓ un joueur parti ne bloque pas un vote de re-cave en cours');
+})();
+
 // ---------------------------------------------------------------- manche
 
 (async () => {

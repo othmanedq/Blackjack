@@ -87,6 +87,8 @@ class Game {
     this.resultsEndsAt = null;
     this.roundNumber = 0;
     this.timers = { bet: null, turn: null, dealer: null, results: null };
+    // Demande de re-cave en attente : { playerId, pending:Set, approved:Set }
+    this.rebuyRequest = null;
   }
 
   // ---------------------------------------------------------------- joueurs
@@ -124,6 +126,8 @@ class Game {
     const p = this.players.get(token);
     if (!p) return;
     p.connected = false;
+    // Un absent ne doit pas bloquer un vote de re-cave en cours.
+    this.cleanupRebuyAfterLeave(token);
     // Hors manche : on retire le joueur tout de suite.
     if (!p.inRound || this.phase === 'lobby' || this.phase === 'results') {
       if (!p.inRound) this.players.delete(token);
@@ -148,12 +152,17 @@ class Game {
     this.clearTimers();
     // Purge des joueurs déconnectés et des soldes à zéro (re-crédités pour rejouer)
     for (const [id, p] of this.players) {
-      if (!p.connected) { this.players.delete(id); continue; }
+      if (!p.connected) {
+        this.players.delete(id);
+        this.cleanupRebuyAfterLeave(id);
+        continue;
+      }
       p.hands = [];
       p.betPlaced = false;
       p.inRound = false;
       p.lastNet = 0;
-      if (p.balance < this.opts.minBet) p.balance = this.opts.startingBalance; // re-cave automatique
+      // Pas de re-cave automatique : un joueur à sec doit la demander
+      // aux autres (unanimité) ou quitter la table.
     }
     if (this.players.size === 0) {
       this.phase = 'lobby';
@@ -186,9 +195,11 @@ class Game {
     p.betPlaced = true;
     p.inRound = true;
     p.hands = [{ cards: [], bet, status: 'waiting', doubled: false }];
-    // Tout le monde a misé → on distribue sans attendre la fin du timer.
+    // Tous ceux qui PEUVENT miser ont misé → on distribue sans attendre.
+    // (Les joueurs à sec ne bloquent pas la table.)
     const connected = [...this.players.values()].filter((x) => x.connected);
-    if (connected.length > 0 && connected.every((x) => x.betPlaced)) {
+    const allBet = connected.every((x) => x.betPlaced || x.balance < this.opts.minBet);
+    if (connected.some((x) => x.betPlaced) && allBet) {
       clearTimeout(this.timers.bet);
       this.deal();
     } else {
@@ -442,6 +453,95 @@ class Game {
     this.resultsEndsAt = null;
   }
 
+  // ---------------------------------------------------------------- cave & re-cave
+
+  /**
+   * Fixe la cave de départ de tous les joueurs. Uniquement avant la toute
+   * première manche — ensuite les soldes vivent leur vie, sans reset.
+   */
+  setStartingBalance(amount) {
+    if (this.roundNumber > 0 || this.phase !== 'lobby') {
+      throw new Error('La cave de départ se règle avant la première manche.');
+    }
+    const value = Math.floor(Number(amount));
+    if (!Number.isFinite(value) || value < this.opts.minBet || value > 1000000) {
+      throw new Error(`Cave invalide (minimum ${this.opts.minBet} jetons).`);
+    }
+    this.opts.startingBalance = value;
+    for (const p of this.players.values()) p.balance = value;
+    this.push();
+  }
+
+  /** Un joueur à sec demande une re-cave : tous les autres doivent accepter. */
+  requestRebuy(token) {
+    const p = this.players.get(token);
+    if (!p) throw new Error('Joueur inconnu.');
+    if (p.balance >= this.opts.minBet) throw new Error('Tu as encore des jetons.');
+    if (this.rebuyRequest) throw new Error('Une demande de re-cave est déjà en cours.');
+    const voters = [...this.players.values()]
+      .filter((x) => x.connected && x.id !== token)
+      .map((x) => x.id);
+    if (voters.length === 0) {
+      // Seul à la table : rien à voter.
+      p.balance = this.opts.startingBalance;
+      this.push();
+      return;
+    }
+    this.rebuyRequest = { playerId: token, pending: new Set(voters), approved: new Set() };
+    this.push();
+  }
+
+  /**
+   * Vote sur la re-cave en cours. Unanimité requise : un seul refus et le
+   * demandeur quitte la table (il pourra revenir comme nouveau joueur).
+   * @returns {{ kicked: string|null }}
+   */
+  voteRebuy(token, accept) {
+    const r = this.rebuyRequest;
+    if (!r) throw new Error('Aucune demande de re-cave en cours.');
+    if (r.playerId === token) throw new Error('Tu ne peux pas voter pour ta propre demande.');
+    if (!r.pending.has(token)) throw new Error('Ton vote a déjà été pris en compte.');
+    if (!accept) {
+      const requester = r.playerId;
+      this.rebuyRequest = null;
+      this.kickPlayer(requester);
+      return { kicked: requester };
+    }
+    r.pending.delete(token);
+    r.approved.add(token);
+    if (r.pending.size === 0) this.grantRebuy();
+    this.push();
+    return { kicked: null };
+  }
+
+  grantRebuy() {
+    const r = this.rebuyRequest;
+    if (!r) return;
+    const p = this.players.get(r.playerId);
+    if (p) p.balance = this.opts.startingBalance;
+    this.rebuyRequest = null;
+  }
+
+  /** Retire un joueur de la table (un joueur à sec n'est jamais en cours de manche). */
+  kickPlayer(token) {
+    this.players.delete(token);
+    this.cleanupRebuyAfterLeave(token);
+    this.push();
+  }
+
+  /** Un joueur parti ne doit ni bloquer un vote, ni laisser une demande orpheline. */
+  cleanupRebuyAfterLeave(token) {
+    const r = this.rebuyRequest;
+    if (!r) return;
+    if (r.playerId === token) {
+      this.rebuyRequest = null;
+      return;
+    }
+    r.pending.delete(token);
+    r.approved.delete(token);
+    if (r.pending.size === 0) this.grantRebuy();
+  }
+
   /**
    * Chef de table : le joueur connecté le plus ancien. En mode « chacun son
    * écran » (sans ordinateur-table), c'est lui qui lance les manches.
@@ -473,6 +573,18 @@ class Game {
       minBet: this.opts.minBet,
       serverNow: Date.now(),
       hostPlayerId: this.hostPlayerId(),
+      startingBalance: this.opts.startingBalance,
+      canConfigure: this.phase === 'lobby' && this.roundNumber === 0,
+      rebuyRequest: this.rebuyRequest
+        ? {
+            playerId: this.rebuyRequest.playerId,
+            playerName: (this.players.get(this.rebuyRequest.playerId) || {}).name || '?',
+            amount: this.opts.startingBalance,
+            approved: this.rebuyRequest.approved.size,
+            total: this.rebuyRequest.approved.size + this.rebuyRequest.pending.size,
+            awaiting: [...this.rebuyRequest.pending],
+          }
+        : null,
       dealer: {
         cards: dealerCards,
         revealed,
