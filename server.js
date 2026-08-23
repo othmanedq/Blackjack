@@ -60,7 +60,9 @@ function scoreInterface(name, address) {
 const localIps = getLocalIps();
 // L'adresse peut être forcée : HOST_IP=192.168.1.42 npm start
 const localIp = process.env.HOST_IP || (localIps[0] ? localIps[0].address : 'localhost');
-const joinUrl = `http://${localIp}:${PORT}/`;
+// Hébergement en ligne (Render, Railway…) : PUBLIC_URL=https://mon-app.onrender.com
+const publicUrl = process.env.PUBLIC_URL ? process.env.PUBLIC_URL.replace(/\/+$/, '') : null;
+const joinUrl = publicUrl ? `${publicUrl}/` : `http://${localIp}:${PORT}/`;
 
 const game = new Game((state) => io.emit('state', state));
 
@@ -161,10 +163,10 @@ server.listen(PORT, () => {
   console.log('');
   console.log('  ♠ ♥  BLACKJACK ROYALE  ♦ ♣');
   console.log('  ──────────────────────────────────────────');
-  console.log(`  Table (ordinateur) : http://localhost:${PORT}/host`);
+  console.log(`  Table (ordinateur) : ${publicUrl ? `${publicUrl}/host` : `http://localhost:${PORT}/host`}`);
   console.log(`  Joueurs (mobiles)  : ${joinUrl}`);
   console.log('  ──────────────────────────────────────────');
-  if (localIps.length > 1) {
+  if (!publicUrl && localIps.length > 1) {
     console.log('  Plusieurs interfaces réseau détectées — si les téléphones');
     console.log('  ne se connectent pas, essayez une autre adresse :');
     for (const c of localIps) {
@@ -174,6 +176,10 @@ server.listen(PORT, () => {
     console.log(`  Pour en forcer une : HOST_IP=<adresse> npm start`);
     console.log('  ──────────────────────────────────────────');
   }
-  console.log('  Les téléphones doivent être sur le même réseau Wi-Fi.');
+  if (publicUrl) {
+    console.log('  Serveur public : partagez simplement le lien ci-dessus.');
+  } else {
+    console.log('  Les téléphones doivent être sur le même réseau Wi-Fi.');
+  }
   console.log('');
 });

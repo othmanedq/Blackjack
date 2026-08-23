@@ -83,6 +83,17 @@ Blackjack/
 └── package.json
 ```
 
+## ☁️ Héberger en ligne (jouer sans être sur le même Wi-Fi)
+
+Le serveur se déploie tel quel sur n'importe quel hébergeur Node.js (Render, Railway, Fly.io…). Exemple avec le plan gratuit de [Render](https://render.com) :
+
+1. **New → Web Service**, connectez votre dépôt GitHub et choisissez la branche du jeu.
+2. Build command : `npm install` — Start command : `npm start`.
+3. Dans **Environment**, ajoutez `PUBLIC_URL` = l'URL de votre service (ex. `https://blackjack-royale.onrender.com`) pour que le QR code et les liens pointent vers la bonne adresse.
+4. Déployez, puis partagez l'URL : les joueurs la rejoignent depuis n'importe où (4G comprise), et `/host` reste la vue table.
+
+À savoir : il n'y a **qu'une seule table** par serveur — toute personne ayant l'URL rejoint la même partie, ne la partagez qu'à vos amis. Sur le plan gratuit de Render, le serveur s'endort après ~15 min d'inactivité (première connexion un peu lente, puis tout est normal) et la partie en cours est remise à zéro s'il s'endort.
+
 ## 🔧 Notes techniques
 
 - **État 100 % côté serveur** : les clients n'envoient que des intentions (`hit`, `stand`, `bet`…), le serveur valide tout et diffuse un état public — la carte cachée du croupier n'est jamais transmise avant sa révélation.
