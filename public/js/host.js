@@ -18,8 +18,11 @@ const els = {
   qrImg: document.getElementById('qr-img'),
   joinUrl: document.getElementById('join-url'),
   startBtn: document.getElementById('start-btn'),
+  modeBox: document.getElementById('mode-box'),
+  hostModeOptions: document.getElementById('host-mode-options'),
   stakeBox: document.getElementById('stake-box'),
   stakeSelect: document.getElementById('stake-select'),
+  toast: document.getElementById('toast'),
   collapseBtn: document.getElementById('collapse-btn'),
   expandBtn: document.getElementById('expand-btn'),
   muteBtn: document.getElementById('mute-btn'),
@@ -54,7 +57,24 @@ els.stakeSelect.addEventListener('change', () => {
   sfx.chip();
   socket.emit('host:setStartingBalance', { amount: Number(els.stakeSelect.value) });
 });
-socket.on('game:error', ({ message }) => console.warn('Erreur de jeu :', message));
+els.hostModeOptions.addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-mode]');
+  if (!btn) return;
+  sfx.click();
+  socket.emit('host:setGameMode', { mode: btn.dataset.mode });
+});
+socket.on('game:error', ({ message }) => {
+  console.warn('Erreur de jeu :', message);
+  showToast(message);
+});
+
+let toastTimer = null;
+function showToast(message) {
+  els.toast.textContent = message || 'Action impossible.';
+  els.toast.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => (els.toast.hidden = true), 3200);
+}
 els.collapseBtn.addEventListener('click', () => setPanel('hidden'));
 els.expandBtn.addEventListener('click', () => setPanel('visible'));
 els.muteBtn.addEventListener('click', () => {
@@ -119,12 +139,20 @@ function render() {
   state.players.forEach((p) => renderSeat(p));
 
   // --- panneau rejoindre / bouton manche
+  const needsMode = state.roundNumber === 0 && !state.mode;
   const canStart =
-    state.players.length > 0 && (state.phase === 'lobby' || state.phase === 'results');
+    state.players.length > 0 && !needsMode &&
+    (state.phase === 'lobby' || state.phase === 'results');
   els.startBtn.disabled = !canStart;
   els.startBtn.textContent = state.roundNumber ? 'Nouvelle manche' : 'Lancer la manche';
 
-  // Cave de départ : réglable uniquement avant la première manche.
+  // Mode de jeu + cave de départ : réglables uniquement avant la 1ère manche.
+  els.modeBox.hidden = !state.canConfigure;
+  if (state.canConfigure) {
+    els.hostModeOptions.querySelectorAll('.mode-btn').forEach((btn) => {
+      btn.classList.toggle('selected', btn.dataset.mode === state.mode);
+    });
+  }
   els.stakeBox.hidden = !state.canConfigure;
   if (state.canConfigure && document.activeElement !== els.stakeSelect) {
     els.stakeSelect.value = String(state.startingBalance);

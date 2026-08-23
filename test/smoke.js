@@ -29,6 +29,13 @@ console.log('✓ valeurs de mains, blackjack naturel, sabot 6 jeux');
   const bob = game.addPlayer({ token: 'b', name: 'Bob' });
   const carl = game.addPlayer({ token: 'c', name: 'Carl' });
 
+  // Le mode de jeu est obligatoire avant de lancer la 1ère manche.
+  assert.throws(() => game.startBetting(), /mode de jeu/i);
+  assert.throws(() => game.setGameMode('poker'), /invalide/i);
+  game.setGameMode('table');
+  game.setGameMode('phones'); // reste modifiable tant que la partie n'a pas commencé
+  assert.strictEqual(game.mode, 'phones');
+
   // La cave ne se règle qu'avant la première manche.
   game.setStartingBalance(500);
   assert.strictEqual(alice.balance, 500);
@@ -37,6 +44,7 @@ console.log('✓ valeurs de mains, blackjack naturel, sabot 6 jeux');
 
   game.startBetting();
   assert.throws(() => game.setStartingBalance(2000), /avant la première manche/i);
+  assert.throws(() => game.setGameMode('table'), /avant la première manche/i);
 
   game.clearTimers();
   alice.balance = 0; // simule un joueur qui a tout perdu
@@ -84,6 +92,51 @@ console.log('✓ valeurs de mains, blackjack naturel, sabot 6 jeux');
   console.log('✓ un joueur parti ne bloque pas un vote de re-cave en cours');
 })();
 
+// ---------------------------------------------------------------------- split
+
+(() => {
+  // Sabot maîtrisé pour un scénario déterministe : draw() = shoe.pop(),
+  // donc les cartes en fin de tableau sont tirées en premier.
+  const game = new Game(() => {}, { betTimeMs: 100000, turnTimeMs: 100000 });
+  const alice = game.addPlayer({ token: 'a', name: 'Alice' });
+  alice.balance = 900; // après une mise de 100 déjà déduite
+  const pairA = c('8', '♠');
+  const pairB = c('8', '♥');
+  alice.hands = [{ cards: [pairA, pairB], bet: 100, status: 'playing', doubled: false }];
+  game.phase = 'playing';
+  game.current = { playerId: 'a', handIndex: 0 };
+  // 1er split tirera d'abord un 8 (pour permettre le resplit), puis un 2.
+  game.shoe = [c('2', '♣'), c('8', '♦')];
+
+  game.split('a');
+  assert.strictEqual(alice.hands.length, 2, 'le split doit créer une 2ᵉ main');
+  assert.strictEqual(alice.balance, 800, 'la mise de la nouvelle main est déduite');
+  assert.deepStrictEqual(alice.hands[0].cards.map((x) => x.rank), ['8', '8'], 'la main active a une nouvelle paire de 8');
+  assert.strictEqual(game.current.handIndex, 0, 'la main active ne change pas tant qu\'elle est jouable');
+
+  const stateAfterFirstSplit = game.publicState();
+  const meAfterFirst = stateAfterFirstSplit.players[0];
+  assert.strictEqual(meAfterFirst.hands[0].canSplit, true, 'une nouvelle paire doit pouvoir resplitter');
+
+  // Resplit : refusé auparavant ("un seul split par manche"), désormais autorisé.
+  game.split('a');
+  assert.strictEqual(alice.hands.length, 3, 'le resplit doit créer une 3ᵉ main');
+  assert.strictEqual(alice.balance, 700, 'la mise de la 3ᵉ main est déduite');
+  alice.hands.forEach((h, i) => assert.strictEqual(h.cards.length, 2, `la main ${i} doit avoir 2 cartes`));
+  console.log('✓ resplit autorisé quand une nouvelle paire apparaît après un split');
+
+  // Le nombre de mains est plafonné (maxSplitHands = 4 par défaut).
+  alice.hands = [
+    { cards: [c('5', '♠'), c('5', '♥')], bet: 100, status: 'stand', doubled: false },
+    { cards: [c('5', '♦'), c('5', '♣')], bet: 100, status: 'stand', doubled: false },
+    { cards: [c('5', '♠'), c('5', '♥')], bet: 100, status: 'stand', doubled: false },
+    { cards: [c('9', '♠'), c('9', '♥')], bet: 100, status: 'playing', doubled: false }, // 4ᵉ main, encore une paire
+  ];
+  game.current = { playerId: 'a', handIndex: 3 };
+  assert.throws(() => game.split('a'), /maximum 4 mains/i);
+  console.log('✓ le nombre de mains après split est plafonné à maxSplitHands');
+})();
+
 // ---------------------------------------------------------------- manche
 
 (async () => {
@@ -99,6 +152,7 @@ console.log('✓ valeurs de mains, blackjack naturel, sabot 6 jeux');
   const bob = game.addPlayer({ token: 'tok-bob', name: 'Bob', color: '#0f0', avatar: '🐼' });
   assert.strictEqual(game.players.size, 2);
 
+  game.setGameMode('table');
   game.startBetting();
   assert.strictEqual(game.phase, 'betting');
 

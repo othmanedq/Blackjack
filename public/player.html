@@ -45,8 +45,22 @@
     </div>
 
     <main class="game-scroll">
-    <!-- Cave de départ (avant la première manche, réglée par le chef) -->
+    <!-- Configuration de la partie (avant la première manche, réglée par le chef) -->
     <div class="panel" id="config-panel" hidden>
+      <p class="panel-title">Mode de jeu</p>
+      <div class="mode-row" id="mode-options">
+        <button type="button" class="mode-btn" data-mode="table">
+          <span class="mode-icon">🖥️</span>
+          <span class="mode-label">Tous sur un écran</span>
+          <span class="mode-sub">Un ordinateur affiche la table</span>
+        </button>
+        <button type="button" class="mode-btn" data-mode="phones">
+          <span class="mode-icon">📱</span>
+          <span class="mode-label">Chacun son écran</span>
+          <span class="mode-sub">Chaque téléphone affiche tout</span>
+        </button>
+      </div>
+
       <p class="panel-title">Cave de départ — pour tous les joueurs</p>
       <div class="stake-row" id="stake-options"></div>
       <p class="config-hint" id="config-hint"></p>

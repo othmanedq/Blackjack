@@ -116,6 +116,26 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Mode de jeu, obligatoire avant la première manche (écran table ou chef).
+  socket.on('host:setGameMode', ({ mode } = {}) => {
+    try {
+      game.setGameMode(mode);
+    } catch (err) {
+      socket.emit('game:error', { message: err.message });
+    }
+  });
+
+  socket.on('player:setGameMode', ({ mode } = {}, ack) => {
+    respond(ack, () => {
+      const token = socketPlayer.get(socket.id);
+      if (!token) throw new Error('Rejoins la partie d’abord.');
+      if (token !== game.hostPlayerId()) {
+        throw new Error('Seul le chef de table peut choisir le mode de jeu.');
+      }
+      game.setGameMode(mode);
+    });
+  });
+
   // Cave de départ, réglée avant la première manche (écran table ou chef).
   socket.on('host:setStartingBalance', ({ amount } = {}) => {
     try {

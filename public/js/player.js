@@ -28,6 +28,7 @@ const els = {
   handsPanel: document.getElementById('hands-panel'),
   myHands: document.getElementById('my-hands'),
   configPanel: document.getElementById('config-panel'),
+  modeOptions: document.getElementById('mode-options'),
   stakeOptions: document.getElementById('stake-options'),
   configHint: document.getElementById('config-hint'),
   rebuyPanel: document.getElementById('rebuy-panel'),
@@ -160,6 +161,17 @@ els.betConfirm.addEventListener('click', () => {
   });
 });
 
+/* ------------------------------- mode de jeu ------------------------------ */
+
+els.modeOptions.addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-mode]');
+  if (!btn) return;
+  sfx.click();
+  socket.emit('player:setGameMode', { mode: btn.dataset.mode }, (res) => {
+    if (res && !res.ok) showToast(res.message);
+  });
+});
+
 /* ---------------------- cave de départ & re-cave ------------------------- */
 
 const STAKE_PRESETS = [100, 500, 1000, 2000, 5000, 10000];
@@ -208,13 +220,26 @@ function renderConfig(me) {
   els.configPanel.hidden = !show;
   if (!show) return;
   const isChef = state.hostPlayerId === me.id;
+
+  els.modeOptions.querySelectorAll('.mode-btn').forEach((btn) => {
+    btn.classList.toggle('selected', btn.dataset.mode === state.mode);
+    btn.disabled = !isChef;
+  });
+
   els.stakeOptions.innerHTML = STAKE_PRESETS.map(
     (v) => `<button type="button" class="stake-btn${v === state.startingBalance ? ' selected' : ''}"
       data-stake="${v}" ${isChef ? '' : 'disabled'}>${fmt.format(v)}</button>`
   ).join('');
-  els.configHint.textContent = isChef
-    ? 'Tu es chef de table 👑 : choisis la cave de chacun. Elle ne changera plus après la première manche.'
-    : `Le chef de table a fixé la cave à ${fmt.format(state.startingBalance)} jetons.`;
+
+  if (!state.mode) {
+    els.configHint.textContent = isChef
+      ? '👑 Choisis d\'abord un mode de jeu, puis la cave de chacun.'
+      : 'En attente du chef de table pour choisir le mode de jeu…';
+  } else {
+    els.configHint.textContent = isChef
+      ? 'Tu es chef de table 👑 : ces réglages ne changeront plus après la première manche.'
+      : `Mode : ${state.mode === 'phones' ? 'chacun son écran' : 'tous sur un écran'} — cave à ${fmt.format(state.startingBalance)} jetons.`;
+  }
 }
 
 function renderRebuy(me) {
@@ -315,9 +340,11 @@ function render() {
   renderTable(me);
 
   // Chef de table : couronne + bouton pour lancer la manche depuis le téléphone
+  // (uniquement en mode « chacun son écran » — en mode table, c'est l'écran
+  // commun qui lance les manches).
   const isChef = state.hostPlayerId === me.id;
   els.meName.textContent = (isChef ? '👑 ' : '') + profile.name;
-  const canStart = isChef && (state.phase === 'lobby' || state.phase === 'results');
+  const canStart = isChef && state.mode === 'phones' && (state.phase === 'lobby' || state.phase === 'results');
   els.phoneStart.hidden = !canStart;
   els.phoneStart.textContent = state.roundNumber ? 'Nouvelle manche 🎰' : 'Lancer la manche 🎰';
 
@@ -326,9 +353,19 @@ function render() {
   let msg = '';
   let msgCls = '';
   if (state.phase === 'lobby') {
-    msg = isChef
-      ? 'Tu es le chef de table 👑\nLance la manche quand tout le monde a rejoint !'
-      : 'Bien installé ! 🛋️\nEn attente du lancement de la manche…';
+    if (!state.mode) {
+      msg = isChef
+        ? 'Choisis le mode de jeu ci-dessus 👆'
+        : 'En attente du chef de table pour configurer la partie…';
+    } else if (state.mode === 'table') {
+      msg = isChef
+        ? 'Mode « tous sur un écran ».\nLance la manche depuis l\'écran de la table 🖥️'
+        : 'Bien installé ! 🛋️\nRegarde l\'écran de la table pour suivre la partie.';
+    } else {
+      msg = isChef
+        ? 'Tu es le chef de table 👑\nLance la manche quand tout le monde a rejoint !'
+        : 'Bien installé ! 🛋️\nEn attente du lancement de la manche…';
+    }
   } else if (isBetting) {
     if (me.betPlaced) {
       badge = ['betting', 'Mise placée ✓'];
@@ -473,7 +510,10 @@ function otherStatusBadge(p) {
 }
 
 function renderTable(me) {
-  const show = state.dealer.cards.length > 0 || state.players.length > 1;
+  // En mode « tous sur un écran », l'écran commun affiche déjà le croupier
+  // et les autres joueurs — pas besoin de dupliquer sur les téléphones.
+  const show = state.mode === 'phones' &&
+    (state.dealer.cards.length > 0 || state.players.length > 1);
   els.tablePanel.hidden = !show;
   if (!show) return;
 

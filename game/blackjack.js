@@ -9,7 +9,9 @@
  *  - Blackjack naturel payé 3:2
  *  - Le croupier tire jusqu'à 16 et s'arrête à 17, y compris Soft 17 (stand)
  *  - Push (égalité) : mise rendue
- *  - Double Down (2 premières cartes, solde suffisant), Split (paire de même rang, 1 split max)
+ *  - Double Down (2 premières cartes, solde suffisant)
+ *  - Split (paire de même rang), resplit autorisé si une nouvelle paire
+ *    apparaît, jusqu'à `maxSplitHands` mains au total pour ce joueur
  */
 
 const SUITS = ['♠', '♥', '♦', '♣'];
@@ -25,6 +27,7 @@ const DEFAULTS = {
   resultsTimeMs: 6000,
   dealerDrawDelayMs: 900,
   maxPlayers: 7,
+  maxSplitHands: 4, // jusqu'à 3 splits (règle courante des casinos)
 };
 
 function rankValue(rank) {
@@ -89,6 +92,9 @@ class Game {
     this.timers = { bet: null, turn: null, dealer: null, results: null };
     // Demande de re-cave en attente : { playerId, pending:Set, approved:Set }
     this.rebuyRequest = null;
+    // Mode de jeu : 'table' (écran commun) ou 'phones' (chacun son écran).
+    // Choix obligatoire avant de lancer la toute première manche.
+    this.mode = null;
   }
 
   // ---------------------------------------------------------------- joueurs
@@ -149,6 +155,9 @@ class Game {
   /** L'hôte lance une manche : phase de mises. */
   startBetting() {
     if (this.phase === 'betting' || this.phase === 'playing' || this.phase === 'dealer') return;
+    if (this.roundNumber === 0 && !this.mode) {
+      throw new Error('Choisissez un mode de jeu avant de lancer la partie.');
+    }
     this.clearTimers();
     // Purge des joueurs déconnectés et des soldes à zéro (re-crédités pour rejouer)
     for (const [id, p] of this.players) {
@@ -340,7 +349,9 @@ class Game {
 
   split(token) {
     const { p, h } = this.currentHand(token);
-    if (p.hands.length !== 1) throw new Error('Un seul split par manche.');
+    if (p.hands.length >= this.opts.maxSplitHands) {
+      throw new Error(`Maximum ${this.opts.maxSplitHands} mains après split.`);
+    }
     if (h.cards.length !== 2 || h.cards[0].rank !== h.cards[1].rank) {
       throw new Error('Split possible uniquement avec une paire.');
     }
@@ -451,6 +462,25 @@ class Game {
     this.betEndsAt = null;
     this.turnEndsAt = null;
     this.resultsEndsAt = null;
+  }
+
+  // ---------------------------------------------------------------- mode de jeu
+
+  /**
+   * Choisit le mode de jeu, obligatoire avant la toute première manche :
+   * 'table' (un écran commun affiche le croupier et le plateau, les
+   * téléphones ne sont que des manettes) ou 'phones' (chacun son écran,
+   * chaque téléphone affiche aussi le croupier et les autres joueurs).
+   */
+  setGameMode(mode) {
+    if (this.roundNumber > 0 || this.phase !== 'lobby') {
+      throw new Error('Le mode de jeu se choisit avant la première manche.');
+    }
+    if (mode !== 'table' && mode !== 'phones') {
+      throw new Error('Mode de jeu invalide.');
+    }
+    this.mode = mode;
+    this.push();
   }
 
   // ---------------------------------------------------------------- cave & re-cave
@@ -573,6 +603,7 @@ class Game {
       minBet: this.opts.minBet,
       serverNow: Date.now(),
       hostPlayerId: this.hostPlayerId(),
+      mode: this.mode,
       startingBalance: this.opts.startingBalance,
       canConfigure: this.phase === 'lobby' && this.roundNumber === 0,
       rebuyRequest: this.rebuyRequest
@@ -620,7 +651,7 @@ class Game {
               soft: v.soft,
               canDouble: h.cards.length === 2 && h.status === 'playing' && p.balance >= h.bet,
               canSplit:
-                p.hands.length === 1 &&
+                p.hands.length < this.opts.maxSplitHands &&
                 h.cards.length === 2 &&
                 h.status === 'playing' &&
                 h.cards[0].rank === h.cards[1].rank &&

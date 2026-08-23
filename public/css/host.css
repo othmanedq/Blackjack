@@ -224,19 +224,44 @@ body {
   word-break: break-all;
 }
 
-.stake-box {
+.stake-box, .mode-box {
   display: flex;
   flex-direction: column;
   gap: 5px;
   text-align: left;
 }
-.stake-box label {
+.stake-box label, .mode-box label {
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: rgba(245,233,200,0.65);
 }
+.mode-box .mode-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 0;
+}
+.mode-box .mode-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 6px;
+  border-radius: 11px;
+  border: 2px solid rgba(212,175,55,0.3);
+  background: rgba(0,0,0,0.3);
+  color: var(--cream);
+  cursor: pointer;
+  font-family: var(--font-ui);
+}
+.mode-box .mode-btn.selected {
+  border-color: var(--gold-bright);
+  background: linear-gradient(180deg, rgba(212,175,55,0.28), rgba(212,175,55,0.10));
+}
+.mode-box .mode-icon { font-size: 1.35rem; line-height: 1; }
+.mode-box .mode-label { font-weight: 800; font-size: 0.78rem; }
 .stake-box select {
   font-family: var(--font-ui);
   font-size: 1rem;

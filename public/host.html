@@ -47,6 +47,17 @@
     <p class="join-hint">Scannez avec votre téléphone<br /><small>(même réseau Wi-Fi)</small></p>
     <div class="qr-frame"><img id="qr-img" alt="QR code pour rejoindre" /></div>
     <code class="join-url" id="join-url">http://…</code>
+    <div class="mode-box" id="mode-box" hidden>
+      <label>Mode de jeu</label>
+      <div class="mode-row" id="host-mode-options">
+        <button type="button" class="mode-btn" data-mode="table">
+          <span class="mode-icon">🖥️</span><span class="mode-label">Un écran</span>
+        </button>
+        <button type="button" class="mode-btn" data-mode="phones">
+          <span class="mode-icon">📱</span><span class="mode-label">Chacun le sien</span>
+        </button>
+      </div>
+    </div>
     <div class="stake-box" id="stake-box" hidden>
       <label for="stake-select">Cave de départ (tous)</label>
       <select id="stake-select">
@@ -63,6 +74,8 @@
   </aside>
 
   <button class="fab" id="expand-btn" hidden>📱 Rejoindre / Nouvelle manche</button>
+
+  <div class="toast" id="toast" hidden></div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/shared.js"></script>

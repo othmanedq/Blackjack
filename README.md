@@ -23,13 +23,15 @@ Puis :
 > 💡 Port personnalisé : `PORT=8080 npm start`. Adresse forcée : `HOST_IP=192.168.1.42 npm start`.
 > 🧪 Test de la logique de jeu : `npm test`.
 
-## 🎭 Deux façons de jouer
+## 🎭 Deux façons de jouer — un choix obligatoire avant de commencer
 
-**Mode table de casino** (ordinateur + téléphones) : l'ordinateur affiche la table (`/host`) — croupier, mains de tous les joueurs, QR code — et chaque téléphone sert de manette.
+Avant de lancer la toute première manche, le **chef de table 👑** (le premier joueur connecté) doit choisir un mode sur son téléphone — ou l'écran table s'il est ouvert. Ce choix ne peut plus être changé une fois la partie commencée.
 
-**Mode chacun son écran** (téléphones uniquement) : l'ordinateur ne sert qu'à faire tourner le serveur, personne n'a besoin de le regarder. Chaque téléphone affiche, en plus de sa propre main, le panneau **« La table »** : les cartes du croupier (la 2ᵉ reste face cachée jusqu'à son tour) et les mains, scores et statuts de tous les autres joueurs. Le **premier joueur connecté est le chef de table 👑** : c'est lui qui a le bouton « Lancer la manche » sur son téléphone. Le panneau « La table » est repliable d'un tap pour retrouver une manette compacte.
+**🖥️ Tous sur un écran** : un ordinateur affiche la table (`/host`) — croupier, mains de tous les joueurs, QR code — et chaque téléphone sert uniquement de manette (pas de panneau croupier/autres joueurs sur mobile). C'est l'écran de la table qui a le bouton « Lancer la manche ».
 
-Les deux modes coexistent naturellement : ouvrez `/host` sur un grand écran si vous en avez un, ignorez-le sinon.
+**📱 Chacun son écran** : aucun ordinateur nécessaire, personne n'a besoin de le regarder. Chaque téléphone affiche, en plus de sa propre main, le panneau **« La table »** : les cartes du croupier (la 2ᵉ reste face cachée jusqu'à son tour) et les mains, scores et statuts de tous les autres joueurs — repliable d'un tap pour une manette plus compacte. Le chef de table a le bouton « Lancer la manche » directement sur son téléphone.
+
+Tant qu'aucun mode n'est choisi, le bouton de lancement reste verrouillé sur les deux écrans — impossible de démarrer sans que la table se soit mise d'accord.
 
 ## 🎮 Fonctionnement
 
@@ -56,7 +58,7 @@ Les deux modes coexistent naturellement : ouvrez `/host` sur un grand écran si 
 | Croupier | tire à 16, **s'arrête à 17 (Soft 17 : stand)** |
 | Égalité | **Push** — la mise est rendue |
 | Double Down | sur les 2 premières cartes, si le solde le permet |
-| Split | sur une paire de même rang (1 split max par manche) |
+| Split | sur une paire de même rang ; **resplit autorisé** si une nouvelle paire apparaît, jusqu'à 4 mains au total |
 | Timers | 30 s pour miser, 30 s par tour (stand automatique) |
 | Jetons | cave de départ choisie par le chef de table avant la 1ère manche, **pas de reset automatique** |
 
