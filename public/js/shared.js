@@ -266,3 +266,11 @@ function sideTagsHtml(p) {
     ? `<span class="side-tag won">${iconHtml('sparkle')} ${SIDE_NAMES[key]} : ${r.label} ×${r.mult} (+${fmt.format(r.win)})</span>`
     : `<span class="side-tag lost">${SIDE_NAMES[key]} perdu (−${fmt.format(-r.win)})</span>`)).join('');
 }
+
+/* -------------------- Jetons : valeurs et couleurs de casino -------------------- */
+const CHIP_LADDER = [10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000, 250000, 500000];
+const CHIP_COLORS = {
+  10: '#2471a3', 25: '#1e8449', 50: '#b03a2e', 100: '#1c2833', 250: '#c2185b',
+  500: '#7d3c98', 1000: '#b7950b', 2500: '#d35400', 5000: '#5d6d7e', 10000: '#117a65',
+  25000: '#922b21', 50000: '#1a5276', 100000: '#6c3483', 250000: '#9a7d0a', 500000: '#212f3c',
+};

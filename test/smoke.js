@@ -447,6 +447,22 @@ console.log('✓ paris annexes : Perfect Pairs et 21+3');
   alice.hands.forEach((h, i) => assert.strictEqual(h.cards.length, 2, `la main ${i} doit avoir 2 cartes`));
   console.log('✓ resplit autorisé quand une nouvelle paire apparaît après un split');
 
+  // Deux cartes valant 10 se splittent, même de rangs différents (K + Q).
+  const g10 = new Game(() => {}, { betTimeMs: 100000, turnTimeMs: 100000 });
+  const bob = g10.addPlayer({ token: 'b', name: 'Bob' });
+  bob.balance = 900;
+  bob.hands = [{ cards: [c('K', '♠'), c('Q', '♥')], bet: 100, status: 'playing', doubled: false }];
+  g10.phase = 'playing';
+  g10.current = { playerId: 'b', handIndex: 0 };
+  g10.shoe = [c('4'), c('6'), c('7'), c('3'), c('5')];
+  assert.strictEqual(g10.publicState().players[0].hands[0].canSplit, true, 'K + Q doit être splittable');
+  g10.split('b');
+  assert.strictEqual(bob.hands.length, 2);
+  assert.deepStrictEqual(bob.hands.map((h) => h.cards[0].rank), ['K', 'Q']);
+  bob.hands = [{ cards: [c('K'), c('9')], bet: 100, status: 'playing', doubled: false }];
+  assert.throws(() => g10.split('b'), /paire/i, 'K + 9 ne se splitte pas');
+  console.log('✓ split autorisé sur deux cartes valant 10 (K + Q)');
+
   // Le nombre de mains est plafonné (maxSplitHands = 4 par défaut).
   alice.hands = [
     { cards: [c('5', '♠'), c('5', '♥')], bet: 100, status: 'stand', doubled: false },

@@ -38,6 +38,7 @@ const els = {
   reactBtn: document.getElementById('react-btn'),
   reactTray: document.getElementById('react-tray'),
   tDealerFace: document.getElementById('t-dealer-face'),
+  feltArea: document.getElementById('felt-area'),
   betConfirm: document.getElementById('bet-confirm'),
   betClear: document.getElementById('bet-clear'),
   betAllin: document.getElementById('bet-allin'),
@@ -110,7 +111,28 @@ const pendingTotal = () => pending.main + pending.pairs + pending.trio;
 let lastBet = null;
 try { lastBet = JSON.parse(localStorage.getItem('bj_last_bet') || 'null'); } catch { lastBet = null; }
 const betTotal = (b) => b.main + (b.pairs || 0) + (b.trio || 0);
-const dealerFace = createDealerFace([els.tDealerFace]);
+/* Ordinateur ou tablette : la table complète s'affiche à côté des commandes
+   (modes où les téléphones montrent la table). */
+const wideMql = matchMedia('(min-width: 700px) and (min-height: 520px)');
+const tableView = createTableView(els.feltArea, { meId: () => token, phaseMessage: playerPhaseMessage });
+wideMql.addEventListener('change', () => render());
+
+function playerPhaseMessage(s) {
+  const current = s.current && s.players.find((p) => p.id === s.current.playerId);
+  if (s.phase === 'playing' && current) {
+    return current.id === token ? ['target', 'À toi de jouer !'] : ['clock', `Au tour de ${current.name}…`];
+  }
+  const msgs = {
+    lobby: ['clock', 'En attente du lancement de la manche…'],
+    betting: ['chips', 'Faites vos jeux !'],
+    insurance: ['shield', 'Le croupier montre un As — assurance ?'],
+    dealer: ['cards', 'Le croupier joue…'],
+    results: ['flag', 'Manche terminée'],
+  };
+  return msgs[s.phase] || null;
+}
+
+const dealerFace = createDealerFace([els.tDealerFace, tableView.faceImg]);
 
 /* ------------------------------ lobby / join ------------------------------ */
 
@@ -231,12 +253,7 @@ socket.on('state', (s) => {
    cinquante fois sur un jeton de 10. On garde 5 valeurs consécutives de
    l'échelle classique des casinos, la plus grosse valant au plus le quart
    du solde (et jamais moins que l'échelle de base 10 → 250). */
-const CHIP_LADDER = [10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000, 250000, 500000];
-const CHIP_COLORS = {
-  10: '#2471a3', 25: '#1e8449', 50: '#b03a2e', 100: '#1c2833', 250: '#c2185b',
-  500: '#7d3c98', 1000: '#b7950b', 2500: '#d35400', 5000: '#5d6d7e', 10000: '#117a65',
-  25000: '#922b21', 50000: '#1a5276', 100000: '#6c3483', 250000: '#9a7d0a', 500000: '#212f3c',
-};
+// CHIP_LADDER et CHIP_COLORS : voir shared.js.
 const CHIP_COUNT = 5;
 
 function chipValues(balance) {
@@ -402,6 +419,7 @@ els.reactTray.addEventListener('click', (e) => {
 });
 
 socket.on('reaction', ({ playerId, face } = {}) => {
+  if (!els.feltArea.hidden) showReactionBubble(tableView.plateOf(playerId), face);
   if (playerId === token) return showReactionBubble(els.meAvatar, face);
   const row = otherEls.get(playerId);
   if (row) showReactionBubble(row.querySelector('.t-avatar'), face);
@@ -790,11 +808,18 @@ function render() {
   renderRebuy(me);
   renderInsurance(me);
 
-  const showHands = me.inRound && me.hands.length > 0 && me.hands[0].cards.length > 0;
+  // Grand écran : la table complète remplace le panneau « La table » et mes mains.
+  const felt = wideMql.matches && phoneUiEnabled();
+  els.screenGame.classList.toggle('has-felt', felt);
+  els.feltArea.hidden = !felt;
+  if (felt) tableView.render(state);
+
+  const showHands = !felt && me.inRound && me.hands.length > 0 && me.hands[0].cards.length > 0;
   els.handsPanel.hidden = !showHands;
   if (showHands) renderHands(me);
 
-  renderTable(me);
+  if (felt) els.tablePanel.hidden = true;
+  else renderTable(me);
 
   // Chef de table : couronne + bouton pour lancer la manche depuis le téléphone
   // (uniquement en mode « chacun son écran » — en mode table, c'est l'écran

@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;800&family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/shared.css" />
+  <link rel="stylesheet" href="/css/table.css" />
   <link rel="stylesheet" href="/css/host.css" />
 </head>
 <body>
@@ -26,27 +27,8 @@
     </div>
   </header>
 
-  <main class="table" id="table">
-    <!-- Zone croupier -->
-    <section class="dealer-zone" id="dealer-zone">
-      <div class="dealer-title">
-        <img class="face dealer-face" id="dealer-face" alt="Le croupier" />
-        <span class="display gold-text">Croupier</span>
-        <span class="total-pill" id="dealer-total" hidden>0</span>
-        <span class="badge" id="dealer-badge" hidden></span>
-      </div>
-      <div class="hand dealer-hand" id="dealer-hand"></div>
-    </section>
-
-    <!-- Bandeau de phase / timer -->
-    <section class="phase-strip">
-      <div class="phase-msg" id="phase-msg">En attente de joueurs…</div>
-      <div class="timerbar phase-timer" id="phase-timer" hidden><i></i></div>
-    </section>
-
-    <!-- Sièges joueurs -->
-    <section class="seats" id="seats"></section>
-  </main>
+  <!-- La table de casino (dessinée par js/table.js) -->
+  <main class="room" id="table"></main>
 
   <!-- Panneau latéral : rejoindre la partie -->
   <aside class="join-panel" id="join-panel">
@@ -94,6 +76,7 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/icons.js"></script>
   <script src="/js/shared.js"></script>
+  <script src="/js/table.js"></script>
   <script src="/js/host.js"></script>
 </body>
 </html>

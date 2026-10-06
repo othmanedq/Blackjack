@@ -10,7 +10,8 @@
  *  - Le croupier tire jusqu'à 16 et s'arrête à 17, y compris Soft 17 (stand)
  *  - Push (égalité) : mise rendue
  *  - Double Down (2 premières cartes, solde suffisant)
- *  - Split (paire de même rang), resplit autorisé si une nouvelle paire
+ *  - Split sur deux cartes de même valeur (deux figures ou 10 comptent
+ *    comme une paire : K + Q se splitte), resplit autorisé si une nouvelle paire
  *    apparaît, jusqu'à `maxSplitHands` mains au total pour ce joueur
  *  - Paris annexes optionnels, réglés dès la distribution :
  *    Perfect Pairs (2 premières cartes) et 21+3 (2 cartes + carte visible du croupier)
@@ -50,6 +51,11 @@ function handValue(cards) {
   }
   if (hasAce && total + 10 <= 21) return { total: total + 10, soft: true };
   return { total, soft: false };
+}
+
+/** Deux cartes splittables : même valeur, donc 10, J, Q et K entre eux. */
+function isSplittablePair(cards) {
+  return cards.length === 2 && rankValue(cards[0].rank) === rankValue(cards[1].rank);
 }
 
 function isNaturalBlackjack(cards) {
@@ -683,7 +689,7 @@ class Game {
     if (p.hands.length >= this.opts.maxSplitHands) {
       throw new Error(`Maximum ${this.opts.maxSplitHands} mains après split.`);
     }
-    if (h.cards.length !== 2 || h.cards[0].rank !== h.cards[1].rank) {
+    if (!isSplittablePair(h.cards)) {
       throw new Error('Split possible uniquement avec une paire.');
     }
     if (p.balance < h.bet) throw new Error('Solde insuffisant pour splitter.');
@@ -1050,9 +1056,8 @@ class Game {
               canDouble: h.cards.length === 2 && h.status === 'playing' && p.balance >= h.bet,
               canSplit:
                 p.hands.length < this.opts.maxSplitHands &&
-                h.cards.length === 2 &&
                 h.status === 'playing' &&
-                h.cards[0].rank === h.cards[1].rank &&
+                isSplittablePair(h.cards) &&
                 p.balance >= h.bet,
             };
           }),

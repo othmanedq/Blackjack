@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;800&family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/shared.css" />
+  <link rel="stylesheet" href="/css/table.css" />
   <link rel="stylesheet" href="/css/player.css" />
 </head>
 <body>
@@ -52,6 +53,8 @@
 
   <!-- ================== ÉCRAN JEU ================== -->
   <section class="screen game" id="screen-game" hidden>
+    <!-- Ordinateur / tablette : la vraie table, à côté des commandes -->
+    <div class="felt-area" id="felt-area" hidden></div>
     <header class="game-head">
       <span class="me-avatar" id="me-avatar"></span>
       <span class="me-name">
@@ -259,6 +262,7 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/icons.js"></script>
   <script src="/js/shared.js"></script>
+  <script src="/js/table.js"></script>
   <script src="/js/player.js"></script>
 </body>
 </html>

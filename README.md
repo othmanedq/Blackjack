@@ -85,7 +85,7 @@ Toute l'interface utilise des **icônes SVG dessinées à la main** (`public/js/
 | Croupier | tire à 16, **s'arrête à 17 (Soft 17 : stand)** |
 | Égalité | **Push** — la mise est rendue |
 | Double Down | sur les 2 premières cartes, si le solde le permet |
-| Split | sur une paire de même rang ; **resplit autorisé** si une nouvelle paire apparaît, jusqu'à 4 mains au total |
+| Split | sur deux cartes de même valeur — **10, J, Q et K se splittent entre eux** (K + Q compte comme une paire) ; **resplit autorisé** si une nouvelle paire apparaît, jusqu'à 4 mains au total |
 | Assurance | proposée quand le croupier montre un **As**, jusqu'à la moitié de la mise, payée **2:1** si le croupier a effectivement blackjack |
 | Perfect Pairs | pari annexe sur les 2 premières cartes : paire mixte **6:1**, de même couleur **12:1**, parfaite **25:1** |
 | 21+3 | pari annexe sur les 2 cartes + la carte visible du croupier : couleur **5:1**, suite **10:1**, brelan **30:1**, quinte flush **40:1**, brelan couleur **100:1** |

@@ -1,0 +1,443 @@
+/* ============================================================
+   TABLE DE CASINO — demi-lune de feutre, boudin en cuir, croupier
+   côté plat, 7 cercles de mise le long de l'arrondi.
+   Toutes les tailles sont en cqw (largeur de .table-wrap) : la table
+   garde ses proportions, du grand écran à la tablette.
+   ============================================================ */
+
+.table-root {
+  /* Hauteur disponible, réglée par la page (écran table / vue joueur). */
+  --table-max-h: 80vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 0;
+}
+
+.table-wrap {
+  container-type: inline-size;
+  position: relative;
+  /* Hauteur totale ≈ 0,56 × largeur (poste du croupier + demi-lune). */
+  width: min(100%, calc(var(--table-max-h) / 0.56), 1700px);
+}
+
+/* ------------------------------ croupier ------------------------------ */
+
+.dealer-station {
+  position: relative;
+  z-index: 3;
+  height: 6cqw;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 1cqw;
+}
+.dealer-station .dealer-face {
+  width: 5.4cqw;
+  height: 5.4cqw;
+  margin-bottom: -0.9cqw;
+  box-shadow: 0 0 0 0.25cqw var(--gold), 0 0.6cqw 1.6cqw rgba(0, 0, 0, 0.6);
+}
+.dealer-tag {
+  position: absolute;
+  left: calc(50% + 3.4cqw);
+  bottom: 0.6cqw;
+  font-family: var(--font-display);
+  font-size: max(11px, 1.15cqw);
+  letter-spacing: 0.08em;
+  color: rgba(245, 233, 200, 0.75);
+}
+
+/* ------------------------- boudin + feutre ------------------------- */
+
+.rail {
+  position: relative;
+  aspect-ratio: 2 / 1;
+  border-radius: 0 0 50% 50% / 0 0 100% 100%;
+  background:
+    radial-gradient(ellipse at 50% 0%, transparent 62%, rgba(0, 0, 0, 0.35) 100%),
+    linear-gradient(180deg, #5a2e18 0%, #3b1c0e 55%, #24110a 100%);
+  box-shadow:
+    0 2.2cqw 5cqw rgba(0, 0, 0, 0.7),
+    inset 0 -0.5cqw 1cqw rgba(255, 210, 160, 0.12),
+    inset 0 0.25cqw 0.5cqw rgba(0, 0, 0, 0.6);
+}
+/* Liseré doré entre le cuir et le feutre */
+.rail::after {
+  content: '';
+  position: absolute;
+  inset: 0 2.05cqw 2.05cqw 2.05cqw;
+  border-radius: 0 0 50% 50% / 0 0 100% 100%;
+  border: 0.2cqw solid rgba(212, 175, 55, 0.55);
+  border-top: none;
+  pointer-events: none;
+}
+
+.felt {
+  position: absolute;
+  inset: 0 2.3cqw 2.3cqw 2.3cqw;
+  border-radius: 0 0 50% 50% / 0 0 100% 100%;
+  background:
+    radial-gradient(ellipse at 50% 30%, rgba(255, 255, 255, 0.07), transparent 60%),
+    radial-gradient(ellipse at 50% 0%, #1a6b40 0%, #12512f 45%, #0b3a21 85%, #082c19 100%);
+  box-shadow: inset 0 1cqw 2.5cqw rgba(0, 0, 0, 0.45), inset 0 -0.4cqw 1.6cqw rgba(0, 0, 0, 0.5);
+}
+/* Grain du feutre */
+.felt::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.55;
+  background-image:
+    repeating-radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 3px),
+    repeating-radial-gradient(circle at 70% 60%, rgba(0, 0, 0, 0.05) 0 1px, transparent 1px 2px);
+}
+/* Bord droit côté croupier : baguette en bois */
+.felt::after {
+  content: '';
+  position: absolute;
+  left: -2.3cqw;
+  right: -2.3cqw;
+  top: 0;
+  height: 0.55cqw;
+  background: linear-gradient(180deg, #7a4a26, #3d200f);
+  box-shadow: 0 0.2cqw 0.5cqw rgba(0, 0, 0, 0.5);
+}
+
+/* --------------------------- inscriptions --------------------------- */
+
+.felt-print {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.felt-print text { fill: rgba(243, 216, 120, 0.82); }
+.print-bj {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 25px;
+  letter-spacing: 3px;
+}
+.print-rule {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 11.5px;
+  letter-spacing: 1px;
+  fill: rgba(245, 233, 200, 0.6) !important;
+}
+.print-ins {
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 3px;
+}
+.print-line { fill: none; stroke: rgba(243, 216, 120, 0.55); stroke-width: 1.3; }
+.spot-ring { fill: rgba(0, 0, 0, 0.12); stroke: rgba(245, 233, 200, 0.28); stroke-width: 1.6; }
+
+/* ------------------------ rack, sabot, défausse ------------------------ */
+
+.chip-tray {
+  position: absolute;
+  top: 1.1%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 21%;
+  height: 4.6%;
+  display: flex;
+  gap: 0.18cqw;
+  padding: 0.25cqw 0.35cqw;
+  border-radius: 0 0 0.5cqw 0.5cqw;
+  background: linear-gradient(180deg, #120c08, #2a1b11);
+  box-shadow: inset 0 0.2cqw 0.4cqw rgba(0, 0, 0, 0.8), 0 0.15cqw 0 rgba(255, 255, 255, 0.06);
+}
+.chip-tray i {
+  flex: 1;
+  border-radius: 0.3cqw;
+  background:
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.28) 0 1px, transparent 1px 0.32cqw),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 45%, rgba(0, 0, 0, 0.3)),
+    var(--chip-color);
+}
+
+.shoe {
+  position: absolute;
+  top: 1.4%;
+  left: 74.5%;
+  width: 6.6%;
+  height: 9.5%;
+  border-radius: 0.5cqw 0.5cqw 0.4cqw 0.4cqw;
+  background: linear-gradient(160deg, #2c2c2c, #0f0f0f);
+  box-shadow: 0 0.4cqw 0.9cqw rgba(0, 0, 0, 0.6), inset 0 0.1cqw 0 rgba(255, 255, 255, 0.15);
+  transform: rotate(-8deg);
+}
+/* Dos de la carte suivante qui dépasse du sabot */
+.shoe::before {
+  content: '';
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  bottom: -14%;
+  height: 34%;
+  border-radius: 0.25cqw;
+  border: 0.12cqw solid #f0e3bb;
+  background: repeating-linear-gradient(45deg, rgba(243, 216, 120, 0.2) 0 3px, transparent 3px 6px), #6b1422;
+}
+.shoe-count {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: max(9px, 0.8cqw);
+  font-weight: 800;
+  color: rgba(245, 233, 200, 0.7);
+  font-variant-numeric: tabular-nums;
+}
+
+.discard {
+  position: absolute;
+  top: 1.6%;
+  left: 19%;
+  width: 4.4%;
+  height: 8%;
+  border-radius: 0.3cqw;
+  background: linear-gradient(160deg, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.25));
+  border: 0.12cqw solid rgba(245, 233, 200, 0.18);
+  transform: rotate(6deg);
+}
+
+/* ----------------------------- croupier ----------------------------- */
+
+.dealer-zone {
+  position: absolute;
+  top: 8.5%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 1cqw;
+}
+.dealer-zone .hand { min-height: 0; gap: 0.5cqw; }
+.dealer-zone .card { --card-w: 4.5cqw; --card-h: 6.3cqw; }
+.dealer-meta {
+  position: absolute;
+  left: 100%;
+  margin-left: 1cqw;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4cqw;
+}
+.dealer-meta .total-pill { font-size: max(12px, 1.25cqw); white-space: nowrap; }
+.dealer-meta .badge { font-size: max(9px, 0.8cqw); }
+
+.phase-strip {
+  position: absolute;
+  top: 25%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 46%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6cqw;
+  text-align: center;
+}
+.phase-msg {
+  font-family: var(--font-display);
+  font-size: max(12px, 1.3cqw);
+  line-height: 1.25;
+  color: var(--gold-bright);
+  text-shadow: 0 0.15cqw 0.6cqw rgba(0, 0, 0, 0.7);
+  min-height: 1.3em;
+}
+.phase-timer { width: 70%; height: max(4px, 0.35cqw); }
+
+/* ------------------------------- places ------------------------------- */
+
+.seats { position: absolute; inset: 0; }
+
+/* Une place est ancrée au centre de son cercle de mise. */
+.seat {
+  position: absolute;
+  width: 0;
+  height: 0;
+  z-index: 2;
+  --circle: 5.3cqw;
+}
+.seat.is-turn { z-index: 4; }
+
+.bet-circle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--circle);
+  height: var(--circle);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 0.22cqw solid rgba(245, 233, 200, 0.55);
+  background: rgba(0, 0, 0, 0.14);
+  display: grid;
+  place-items: center;
+  transition: border-color 0.25s, box-shadow 0.25s;
+}
+.seat.is-me .bet-circle { border-color: var(--gold-bright); }
+.seat.is-turn .bet-circle {
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 0 0.3cqw rgba(243, 216, 120, 0.25), 0 0 2cqw rgba(243, 216, 120, 0.45);
+  animation: turn-ring 1.2s ease-in-out infinite;
+}
+@keyframes turn-ring {
+  50% { box-shadow: 0 0 0 0.7cqw rgba(243, 216, 120, 0.08), 0 0 2.6cqw rgba(243, 216, 120, 0.55); }
+}
+.seat.result-win .bet-circle { border-color: var(--win); box-shadow: 0 0 1.4cqw rgba(61, 220, 132, 0.45); }
+.seat.result-blackjack .bet-circle { border-color: var(--gold-bright); box-shadow: 0 0 1.8cqw rgba(243, 216, 120, 0.6); }
+.seat.result-lose .bet-circle { border-color: rgba(255, 92, 92, 0.6); }
+
+/* Pile de jetons vue de trois quarts */
+.chip-stack {
+  position: relative;
+  width: 3.4cqw;
+  height: 3.4cqw;
+}
+.stack-chip {
+  position: absolute;
+  left: 0;
+  bottom: calc(var(--n) * 0.36cqw);
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%, var(--chip-color) 0 34%, rgba(255, 255, 255, 0.85) 34% 38%, var(--chip-color) 38%),
+    var(--chip-color);
+  box-shadow:
+    inset 0 0 0 0.28cqw rgba(255, 255, 255, 0.18),
+    inset 0 0 0 0.55cqw rgba(0, 0, 0, 0.12),
+    0 0.2cqw 0 rgba(0, 0, 0, 0.45);
+  border: 0.18cqw dashed rgba(255, 255, 255, 0.75);
+}
+.bet-label {
+  position: absolute;
+  right: -1.2cqw;
+  bottom: -0.6cqw;
+  padding: 0.12cqw 0.5cqw;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(212, 175, 55, 0.5);
+  color: var(--gold-bright);
+  font-size: max(9px, 0.82cqw);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Cartes : posées devant le cercle, vers le centre de la table, en éventail */
+.seat-hands {
+  position: absolute;
+  left: calc(var(--ux, 0) * 6.3cqw);
+  top: calc(var(--uy, -1) * 6.3cqw);
+  transform: translate(-50%, -50%);
+  display: flex;
+  gap: 0.9cqw;
+  align-items: flex-end;
+}
+.seat-hand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35cqw;
+  padding: 0.25cqw;
+  border-radius: 0.6cqw;
+  border: 1px dashed transparent;
+}
+.seat-hand.active { border-color: rgba(243, 216, 120, 0.7); background: rgba(243, 216, 120, 0.08); }
+.seat-hand-meta { display: flex; gap: 0.4cqw; align-items: center; }
+.seat-hand-meta .total-pill { font-size: max(10px, 0.95cqw); }
+.seat-hand-meta .badge { font-size: max(8px, 0.68cqw); }
+.seat-hand .hand { min-height: 0; gap: 0; }
+.seat-hand .card { --card-w: 3.3cqw; --card-h: 4.6cqw; }
+.seat-hand .card + .card { margin-left: -1.75cqw; }
+.seat-hand .card-front .corner { font-size: max(8px, 0.95cqw); }
+
+/* Plaque du joueur, sous son cercle */
+.seat-plate {
+  position: absolute;
+  /* Haut de la plaque : décalage calculé en JS (--px, --py) ; une plaque plus
+     haute que prévu (paris annexes) grandit vers le bas, loin du cercle. */
+  left: var(--px, 0);
+  top: var(--py, calc(var(--circle) / 2 + 0.5cqw));
+  transform: translateX(-50%);
+  width: 10.4cqw;
+  padding: 0.5cqw 0.65cqw 0.6cqw;
+  border-radius: 0.9cqw;
+  background: linear-gradient(180deg, rgba(10, 22, 15, 0.92), rgba(5, 12, 8, 0.92));
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-top: 0.25cqw solid var(--p-color, var(--gold));
+  box-shadow: 0 0.5cqw 1.4cqw rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35cqw;
+  --bubble: 4.6cqw;
+  transition: border-color 0.25s, box-shadow 0.25s;
+}
+.seat.is-turn .seat-plate {
+  border-color: var(--gold);
+  box-shadow: 0 0 1.8cqw rgba(212, 175, 55, 0.35), 0 0.5cqw 1.4cqw rgba(0, 0, 0, 0.55);
+}
+.seat.is-me .seat-plate { border-color: rgba(243, 216, 120, 0.7); }
+.seat.disconnected .seat-plate,
+.seat.disconnected .bet-circle { opacity: 0.45; filter: grayscale(0.6); }
+
+.seat-head { display: flex; align-items: center; gap: 0.5cqw; max-width: 100%; }
+.seat-avatar {
+  width: 2.2cqw;
+  height: 2.2cqw;
+  min-width: 20px;
+  min-height: 20px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: max(11px, 1.2cqw);
+  background: var(--p-color, var(--gold));
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.25);
+}
+.seat-name {
+  font-weight: 800;
+  font-size: max(11px, 1.05cqw);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.seat-balance {
+  font-size: max(10px, 0.95cqw);
+  font-weight: 700;
+  color: var(--gold-bright);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.seat-balance .delta { font-size: 0.85em; margin-left: 0.3em; }
+.delta.up { color: var(--win); }
+.delta.down { color: var(--lose); }
+.seat-status .badge { font-size: max(8px, 0.7cqw); padding: 0.2em 0.7em; }
+.seat-side { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.3cqw; }
+.seat-side .side-tag { font-size: max(8px, 0.66cqw); white-space: normal; text-align: center; }
+.seat-timer { width: 100%; height: max(3px, 0.3cqw); }
+.seat-plate .reaction-bubble { top: -2.4cqw; right: -1.6cqw; }
+
+/* Petite table (tablette, colonne de la vue joueur) : on grossit places et
+   cartes du croupier pour qu'elles restent lisibles. */
+@container (max-width: 1000px) {
+  .seat { zoom: 1.06; }
+  .dealer-zone { zoom: 1.15; }
+}
+@container (max-width: 720px) {
+  .seat { zoom: 1.15; }
+  .dealer-zone { zoom: 1.3; }
+  .print-rule { display: none; }
+}

@@ -748,3 +748,60 @@ html, body {
 }
 .modal-close:active { transform: scale(0.92); }
 .rebuy-see { width: 100%; margin-top: 8px; }
+
+/* ===================== Ordinateur & tablette =====================
+   Sans table affichée : une colonne centrée, lisible.
+   Avec la table (.has-felt) : la vraie table à côté des commandes. */
+
+@media (min-width: 700px) and (min-height: 520px) {
+  .game { max-width: 560px; margin: 0 auto; }
+  .action-btn { padding: 15px 8px; }
+
+  body:has(.game.has-felt) {
+    background:
+      radial-gradient(ellipse 70% 60% at 38% 45%, rgba(255, 214, 150, 0.09), transparent 70%),
+      radial-gradient(ellipse at 40% 50%, #15130f 0%, #0b0a08 60%, #050404 100%);
+  }
+
+  .game.has-felt {
+    max-width: none;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(330px, 28vw, 400px);
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto auto;
+    column-gap: clamp(16px, 2vw, 32px);
+    row-gap: 10px;
+    padding-left: max(16px, 1.5vw);
+    padding-right: max(16px, 1.5vw);
+  }
+  .game.has-felt > * { grid-column: 2; min-width: 0; }
+  .game.has-felt > .felt-area {
+    grid-column: 1;
+    grid-row: 1 / -1;
+    align-self: center;
+    --table-max-h: calc(100dvh - 40px);
+  }
+  .game.has-felt > .game-head { grid-row: 1; }
+  .game.has-felt > .react-tray { grid-row: 2; }
+  .game.has-felt > .status-line { grid-row: 3; }
+  .game.has-felt > .game-scroll { grid-row: 4; }
+  .game.has-felt > .preset-hint { grid-row: 5; }
+  .game.has-felt > .actions { grid-row: 6; }
+  /* Les commandes posées sur un panneau sombre, comme un pupitre */
+  .game.has-felt .panel { background: linear-gradient(180deg, rgba(20, 45, 30, 0.85), rgba(7, 19, 13, 0.9)); }
+}
+
+/* Tablette en portrait : la table en haut, les commandes en dessous. */
+@media (min-width: 700px) and (min-height: 520px) and (orientation: portrait) {
+  .game.has-felt {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto minmax(0, 1fr) auto auto;
+  }
+  .game.has-felt > * { grid-column: 1; }
+  .game.has-felt > .felt-area { grid-row: 1; --table-max-h: 46dvh; }
+  .game.has-felt > .game-head { grid-row: 2; }
+  .game.has-felt > .react-tray { grid-row: 3; }
+  .game.has-felt > .status-line { grid-row: 4; }
+  .game.has-felt > .game-scroll { grid-row: 5; }
+  .game.has-felt > .preset-hint { grid-row: 6; }
+  .game.has-felt > .actions { grid-row: 7; grid-template-columns: repeat(4, 1fr); }
+}
