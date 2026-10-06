@@ -255,7 +255,8 @@ html, body {
   -webkit-overflow-scrolling: touch;
 }
 .game-scroll .center-msg { min-height: 3.2em; flex: 1 0 auto; }
-#phone-start { flex-shrink: 0; }
+/* Toujours visible, même quand les réglages font défiler la zone */
+#phone-start { flex-shrink: 0; position: sticky; bottom: 0; z-index: 2; }
 
 /* --- panneau table : croupier + les autres joueurs --- */
 .table-panel { padding: 10px 12px 12px; }
@@ -766,6 +767,10 @@ html, body {
   .game.has-felt {
     max-width: none;
     display: grid;
+    /* .screen centre ses enfants : en grille, ça faisait déborder la zone
+       centrale par-dessus l'en-tête et les boutons d'action. */
+    align-items: stretch;
+    justify-items: stretch;
     grid-template-columns: minmax(0, 1fr) clamp(330px, 28vw, 400px);
     grid-template-rows: auto auto auto minmax(0, 1fr) auto auto;
     column-gap: clamp(16px, 2vw, 32px);
@@ -773,7 +778,8 @@ html, body {
     padding-left: max(16px, 1.5vw);
     padding-right: max(16px, 1.5vw);
   }
-  .game.has-felt > * { grid-column: 2; min-width: 0; }
+  /* min-height: 0 : sans lui, la zone centrale déborde sur les boutons d'action */
+  .game.has-felt > * { grid-column: 2; min-width: 0; min-height: 0; }
   .game.has-felt > .felt-area {
     grid-column: 1;
     grid-row: 1 / -1;

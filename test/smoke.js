@@ -23,6 +23,13 @@ assert.strictEqual(isNaturalBlackjack([c('7'), c('7'), c('7')]), false);
 assert.strictEqual(buildShoe(6).length, 312);
 console.log('✓ valeurs de mains, blackjack naturel, sabot 6 jeux');
 
+(() => {
+  const game = new Game(() => {});
+  assert.strictEqual(game.addPlayer({ token: 'x', name: '  Maximilien-Alexandre  ' }).name, 'Maximilien-A');
+  assert.strictEqual(game.addPlayer({ token: 'y', name: '     ' }).name, 'Joueur');
+  console.log('✓ pseudo limité à 12 caractères, espaces nettoyés');
+})();
+
 // ---------------------------------------------------------------- paris annexes
 
 const mult = (r) => (r ? r.mult : 0);

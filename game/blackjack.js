@@ -35,6 +35,15 @@ const DEFAULTS = {
   maxSplitHands: 4, // jusqu'à 3 splits (règle courante des casinos)
 };
 
+// Pseudo : 12 caractères au plus, pour tenir sur une plaque de la table.
+const MAX_NAME_LENGTH = 12;
+
+/** Pseudo nettoyé : espaces superflus retirés, longueur bornée (null si vide). */
+function cleanName(name) {
+  const n = String(name || '').replace(/\s+/g, ' ').trim();
+  return n ? [...n].slice(0, MAX_NAME_LENGTH).join('') : null;
+}
+
 function rankValue(rank) {
   if (rank === 'A') return 1;
   if (rank === 'J' || rank === 'Q' || rank === 'K') return 10;
@@ -166,7 +175,7 @@ class Game {
     if (existing) {
       existing.connected = true;
       existing.disconnectedAt = null;
-      if (name) existing.name = String(name).slice(0, 16);
+      if (cleanName(name)) existing.name = cleanName(name);
       this.push();
       return existing;
     }
@@ -180,7 +189,7 @@ class Game {
       this.parked.delete(token);
       parked.connected = true;
       parked.disconnectedAt = null;
-      if (name) parked.name = String(name).slice(0, 16);
+      if (cleanName(name)) parked.name = cleanName(name);
       if (color) parked.color = color;
       if (avatar) parked.avatar = avatar;
       this.players.set(token, parked);
@@ -189,7 +198,7 @@ class Game {
     }
     const player = {
       id: token,
-      name: String(name || 'Joueur').slice(0, 16) || 'Joueur',
+      name: cleanName(name) || 'Joueur',
       color: color || '#facc15',
       avatar: avatar || 'spade', // clé d'icône (voir public/js/icons.js)
       balance: this.opts.startingBalance,
@@ -1099,6 +1108,6 @@ class Game {
 }
 
 module.exports = {
-  Game, handValue, isNaturalBlackjack, buildShoe, DEFAULTS,
+  Game, handValue, isNaturalBlackjack, buildShoe, DEFAULTS, MAX_NAME_LENGTH,
   evalPerfectPairs, evalTwentyOnePlusThree,
 };

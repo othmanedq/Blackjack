@@ -371,7 +371,7 @@
   left: var(--px, 0);
   top: var(--py, calc(var(--circle) / 2 + 0.5cqw));
   transform: translateX(-50%);
-  width: 10.4cqw;
+  width: 11cqw;
   padding: 0.5cqw 0.65cqw 0.6cqw;
   border-radius: 0.9cqw;
   background: linear-gradient(180deg, rgba(10, 22, 15, 0.92), rgba(5, 12, 8, 0.92));
@@ -393,23 +393,24 @@
 .seat.disconnected .seat-plate,
 .seat.disconnected .bet-circle { opacity: 0.45; filter: grayscale(0.6); }
 
-.seat-head { display: flex; align-items: center; gap: 0.5cqw; max-width: 100%; }
+.seat-head { display: flex; align-items: center; gap: 0.4cqw; max-width: 100%; }
 .seat-avatar {
-  width: 2.2cqw;
-  height: 2.2cqw;
-  min-width: 20px;
-  min-height: 20px;
+  width: 1.8cqw;
+  height: 1.8cqw;
+  min-width: 16px;
+  min-height: 16px;
   flex-shrink: 0;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: max(11px, 1.2cqw);
+  font-size: max(9px, 1cqw);
   background: var(--p-color, var(--gold));
   box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.25);
 }
 .seat-name {
   font-weight: 800;
-  font-size: max(11px, 1.05cqw);
+  font-size: max(10px, 1cqw);
+  letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -441,3 +442,20 @@
   .dealer-zone { zoom: 1.3; }
   .print-rule { display: none; }
 }
+
+/* Étiquette « Toi » posée sur le haut de la plaque (vue joueur) */
+.seat-me {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -60%);
+  padding: 0.05cqw 0.6cqw;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+  color: #14200f;
+  font-size: max(8px, 0.62cqw);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.seat-name.long { font-size: max(9px, 0.86cqw); letter-spacing: -0.02em; }

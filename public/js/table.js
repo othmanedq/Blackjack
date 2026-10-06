@@ -22,7 +22,7 @@ const SPOT_SPREAD = {
 };
 
 // Gabarit de la plaque en cqw (doit suivre .seat-plate dans table.css).
-const PLATE_HALF_W = 5.2;
+const PLATE_HALF_W = 5.5;
 const PLATE_HALF_H = 3.3;
 const PLATE_GAP = 3.1; // rayon du cercle de mise + marge
 
@@ -188,6 +188,7 @@ function createTableView(root, opts = {}) {
           <span class="bet-label" hidden></span>
         </div>
         <div class="seat-plate">
+          <span class="seat-me" hidden>Toi</span>
           <div class="seat-head">
             <span class="seat-avatar"></span>
             <span class="seat-name"></span>
@@ -223,7 +224,12 @@ function createTableView(root, opts = {}) {
     const avatarEl = seat.querySelector('.seat-avatar');
     avatarEl.innerHTML = avatarHtml(p.avatar);
     avatarEl.style.setProperty('--p-color', p.color);
-    seat.querySelector('.seat-name').textContent = p.id === meId() ? `${p.name} (toi)` : p.name;
+    // « Toi » dans une étiquette à part : le pseudo garde toute la largeur.
+    const nameEl = seat.querySelector('.seat-name');
+    nameEl.textContent = p.name;
+    nameEl.title = p.name;
+    nameEl.classList.toggle('long', [...p.name].length > 8);
+    seat.querySelector('.seat-me').hidden = p.id !== meId();
     seat.querySelector('.seat-plate').style.setProperty('--p-color', p.color);
 
     let deltaHtml = '';
