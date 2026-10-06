@@ -361,12 +361,15 @@ els.betConfirm.addEventListener('click', () => {
   sendBet(pending);
 });
 
-// Remise : rejoue directement la mise de la manche précédente.
+// Remise : remplit les cases avec la mise de la manche précédente, à confirmer avec « Miser ».
 els.betRebet.addEventListener('click', () => {
   const me = findMe();
   if (!me || !lastBet) return;
   if (betTotal(lastBet) > me.balance) return showToast('Solde insuffisant pour remiser.');
-  sendBet(lastBet);
+  pending = { main: lastBet.main, pairs: lastBet.pairs || 0, trio: lastBet.trio || 0 };
+  betSpot = 'main';
+  sfx.chip();
+  renderBet(me);
 });
 
 /* ------------------------------- réactions -------------------------------- */
