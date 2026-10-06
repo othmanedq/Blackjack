@@ -34,7 +34,6 @@ const els = {
   betAmount: document.getElementById('bet-amount'),
   betSpots: document.getElementById('bet-spots'),
   sideHelp: document.getElementById('side-help'),
-  mySide: document.getElementById('my-side'),
   reactBtn: document.getElementById('react-btn'),
   reactTray: document.getElementById('react-tray'),
   tDealerFace: document.getElementById('t-dealer-face'),
@@ -1043,9 +1042,8 @@ function renderBet(me) {
 }
 
 function renderHands(me) {
+  // Paris annexes affichés à côté de la mise de la première main.
   const sideHtml = sideTagsHtml(me);
-  els.mySide.hidden = !sideHtml;
-  if (els.mySide.innerHTML !== sideHtml) els.mySide.innerHTML = sideHtml;
   while (els.myHands.children.length > me.hands.length) els.myHands.lastChild.remove();
   me.hands.forEach((h, i) => {
     let box = els.myHands.children[i];
@@ -1057,6 +1055,7 @@ function renderHands(me) {
         <div class="my-hand-meta">
           <span class="total-pill">0</span>
           <span class="hand-bet"></span>
+          <span class="hand-side"></span>
           <span class="badge hand-status" hidden></span>
         </div>`;
       els.myHands.appendChild(box);
@@ -1068,6 +1067,10 @@ function renderHands(me) {
     pill.classList.toggle('bust', h.status === 'bust');
     pill.classList.toggle('bj', h.status === 'blackjack');
     box.querySelector('.hand-bet').textContent = `Mise ${fmt.format(h.bet)}${h.doubled ? ' ×2' : ''}`;
+    const sideEl = box.querySelector('.hand-side');
+    const sideFor = i === 0 ? sideHtml : '';
+    sideEl.hidden = !sideFor;
+    if (sideEl.innerHTML !== sideFor) sideEl.innerHTML = sideFor;
     const sb = box.querySelector('.hand-status');
     if (h.status === 'bust' || h.status === 'blackjack' || (state.phase === 'results' && h.result)) {
       const map = {

@@ -62,12 +62,12 @@ function feltPrintSvg() {
 }
 
 /** Pile de jetons pour un montant : plus grosses valeurs en bas, 7 jetons au plus. */
-function chipStackHtml(amount) {
+function chipStackHtml(amount, max = 7) {
   const chips = [];
   let rest = amount;
-  for (let i = CHIP_LADDER.length - 1; i >= 0 && chips.length < 7; i--) {
+  for (let i = CHIP_LADDER.length - 1; i >= 0 && chips.length < max; i--) {
     const v = CHIP_LADDER[i];
-    while (rest >= v && chips.length < 7) {
+    while (rest >= v && chips.length < max) {
       chips.push(v);
       rest -= v;
     }
@@ -187,6 +187,16 @@ function createTableView(root, opts = {}) {
           <div class="chip-stack"></div>
           <span class="bet-label" hidden></span>
         </div>
+        <div class="side-spot" data-side="pairs" hidden>
+          <div class="chip-stack mini"></div>
+          <span class="side-name">Paires</span>
+          <span class="side-pill" hidden></span>
+        </div>
+        <div class="side-spot" data-side="trio" hidden>
+          <div class="chip-stack mini"></div>
+          <span class="side-name">21+3</span>
+          <span class="side-pill" hidden></span>
+        </div>
         <div class="seat-plate">
           <span class="seat-me" hidden>Toi</span>
           <div class="seat-head">
@@ -195,7 +205,6 @@ function createTableView(root, opts = {}) {
           </div>
           <div class="seat-balance"></div>
           <div class="seat-status"></div>
-          <div class="seat-side" hidden></div>
           <div class="seat-timer timerbar" hidden><i></i></div>
         </div>`;
       els.seats.appendChild(seat);
@@ -208,6 +217,9 @@ function createTableView(root, opts = {}) {
     const a = (SPOT_ANGLES[spot] * Math.PI) / 180;
     seat.style.setProperty('--ux', (-Math.cos(a)).toFixed(3));
     seat.style.setProperty('--uy', (-Math.sin(a)).toFixed(3));
+    // Tangente à l'arc : les cercles des paris annexes se posent de part et d'autre.
+    seat.style.setProperty('--tx', (-Math.sin(a)).toFixed(3));
+    seat.style.setProperty('--ty', Math.cos(a).toFixed(3));
     // La plaque part vers l'extérieur (côté joueur), juste assez loin pour ne
     // pas toucher le cercle : distance = rayon + marge + demi-plaque dans cet axe.
     const ox = Math.cos(a);
@@ -251,10 +263,27 @@ function createTableView(root, opts = {}) {
     setLabel(b, ico, txt);
     statusEl.appendChild(b);
 
-    const sideEl = seat.querySelector('.seat-side');
-    const sideHtml = sideTagsHtml(p);
-    sideEl.hidden = !sideHtml;
-    if (sideEl.innerHTML !== sideHtml) sideEl.innerHTML = sideHtml;
+    // Paris annexes : petits cercles collés au cercle de mise, comme au casino.
+    // Gagné → la case brille avec son gain ; perdu → le croupier ramasse les jetons.
+    for (const spotEl of seat.querySelectorAll('.side-spot')) {
+      const key = spotEl.dataset.side;
+      const stake = (p.sideBets && p.sideBets[key]) || 0;
+      const r = p.sideResults && p.sideResults[key];
+      spotEl.hidden = !stake;
+      if (!stake) continue;
+      spotEl.classList.toggle('won', !!(r && r.win > 0));
+      spotEl.classList.toggle('lost', !!(r && r.win < 0));
+      const shown = r && r.win < 0 ? 0 : stake + (r && r.win > 0 ? r.win : 0);
+      const mini = spotEl.querySelector('.chip-stack');
+      if (mini.dataset.amount !== String(shown)) {
+        mini.dataset.amount = String(shown);
+        mini.innerHTML = shown ? chipStackHtml(shown, 3) : '';
+      }
+      const pill = spotEl.querySelector('.side-pill');
+      pill.hidden = false;
+      pill.textContent = !r ? fmt.format(stake) : r.win > 0 ? `×${r.mult} +${fmt.format(r.win)}` : `−${fmt.format(stake)}`;
+      spotEl.title = r && r.win > 0 ? r.label : '';
+    }
 
     // Jetons dans le cercle de mise : toutes les mains (doubles et splits compris).
     const staked = p.hands.reduce((n, h) => n + (h.bet || 0), 0);

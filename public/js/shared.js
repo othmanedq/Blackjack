@@ -263,8 +263,8 @@ function sideTagsHtml(p) {
       .map(([key, v]) => `<span class="side-tag">${SIDE_NAMES[key]} ${fmt.format(v)}</span>`).join('');
   }
   return Object.entries(p.sideResults).map(([key, r]) => (r.win > 0
-    ? `<span class="side-tag won">${iconHtml('sparkle')} ${SIDE_NAMES[key]} : ${r.label} ×${r.mult} (+${fmt.format(r.win)})</span>`
-    : `<span class="side-tag lost">${SIDE_NAMES[key]} perdu (−${fmt.format(-r.win)})</span>`)).join('');
+    ? `<span class="side-tag won" title="${r.label}">${iconHtml('sparkle')} ${SIDE_NAMES[key]} ×${r.mult} +${fmt.format(r.win)}</span>`
+    : `<span class="side-tag lost">${SIDE_NAMES[key]} −${fmt.format(-r.win)}</span>`)).join('');
 }
 
 /* -------------------- Jetons : valeurs et couleurs de casino -------------------- */

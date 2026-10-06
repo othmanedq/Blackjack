@@ -678,7 +678,8 @@ html, body {
   color: rgba(245,233,200,0.75);
   margin: -4px 0 10px;
 }
-.my-side { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-bottom: 4px; }
+.my-hand-meta { flex-wrap: wrap; justify-content: center; }
+.hand-side { display: inline-flex; flex-wrap: wrap; gap: 5px; }
 
 /* --- réactions --- */
 .me-avatar, .t-avatar { position: relative; }
