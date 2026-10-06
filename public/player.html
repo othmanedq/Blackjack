@@ -246,7 +246,10 @@
   <!-- Re-cave : demande d'un joueur à sec, vote des autres (au-dessus des autres modales) -->
   <div class="modal-overlay" id="rebuy-modal" hidden>
     <div class="modal-card rebuy-card">
-      <h2 class="display gold-text">Re-cave</h2>
+      <button type="button" class="modal-close" id="rebuy-close" aria-label="Fermer" hidden>
+        <i data-icon="cross"></i>
+      </button>
+      <h2 class="display gold-text" id="rebuy-title">Re-cave</h2>
       <div id="rebuy-modal-body"></div>
     </div>
   </div>

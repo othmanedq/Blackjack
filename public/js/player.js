@@ -61,6 +61,8 @@ const els = {
   rebuyBody: document.getElementById('rebuy-body'),
   rebuyModal: document.getElementById('rebuy-modal'),
   rebuyModalBody: document.getElementById('rebuy-modal-body'),
+  rebuyClose: document.getElementById('rebuy-close'),
+  rebuyTitle: document.getElementById('rebuy-title'),
   tableActions: document.getElementById('table-actions'),
   giveBtn: document.getElementById('give-btn'),
   kickBtn: document.getElementById('kick-btn'),
@@ -444,7 +446,10 @@ function onRebuyClick(e) {
   if (!btn) return;
   sfx.click();
   const action = btn.dataset.rebuy;
-  if (action === 'later') {
+  if (action === 'close') {
+    // Fin de partie pour ce joueur (re-cave refusée ou exclusion) : retour à l'accueil.
+    els.rebuyModal.hidden = true;
+  } else if (action === 'later') {
     rebuyDismissed = true;
     render();
   } else if (action === 'open') {
@@ -462,6 +467,7 @@ function onRebuyClick(e) {
 }
 els.rebuyBody.addEventListener('click', onRebuyClick);
 els.rebuyModalBody.addEventListener('click', onRebuyClick);
+els.rebuyClose.addEventListener('click', onRebuyClick);
 
 // Re-cave refusée : on quitte la table, avec une identité neuve pour revenir.
 socket.on('player:kicked', ({ message } = {}) => {
@@ -469,6 +475,16 @@ socket.on('player:kicked', ({ message } = {}) => {
   token = newToken();
   localStorage.setItem('bj_token', token);
   leaveToLobby(message || 'Tu as quitté la table.');
+  // La modale de re-cave pouvait être ouverte (attente du vote) : elle annonce
+  // le verdict au lieu de rester bloquée, et se ferme d'un tap.
+  els.rebuyTitle.textContent = 'Tu quittes la table';
+  els.rebuyClose.hidden = false;
+  els.rebuyClose.dataset.rebuy = 'close';
+  setHtml(els.rebuyModalBody, `<p class="modal-text">${esc(message || 'Tu as quitté la table.')}</p>
+    <div class="modal-actions">
+      <button type="button" class="cta" data-rebuy="close">Retour à l'accueil</button>
+    </div>`);
+  els.rebuyModal.hidden = false;
   sfx.lose();
   if (navigator.vibrate) navigator.vibrate(300);
 });
@@ -517,7 +533,11 @@ function renderRebuy(me) {
 
   let modal = '';
   let panel = '';
-  if (r && r.playerId === me.id) {
+  if (r && r.playerId === me.id && rebuyDismissed) {
+    panel = `<p class="rebuy-text">${iconHtml('chipPlus')} Ta demande de re-cave :
+      ${r.approved}/${r.total} ont accepté…</p>
+      <button type="button" class="ghost-btn rebuy-see" data-rebuy="open">Voir</button>`;
+  } else if (r && r.playerId === me.id) {
     modal = `<p class="modal-text">Demande envoyée aux autres joueurs pour
       <strong>${fmt.format(r.amount)}</strong> jetons.</p>
       ${progress}
@@ -556,6 +576,12 @@ function renderRebuy(me) {
       ${iconHtml('chipPlus')} Demander une re-cave (${fmt.format(state.startingBalance)})
     </button>`;
   }
+
+  // Croix de fermeture : partout sauf pour un votant (fermer sans voter bloquerait la table).
+  const isVoter = !!(r && r.awaiting.includes(me.id));
+  els.rebuyTitle.textContent = 'Re-cave';
+  els.rebuyClose.hidden = isVoter;
+  els.rebuyClose.dataset.rebuy = 'later';
 
   // Une modale qui s'ouvre pour voter doit se remarquer.
   if (modal && els.rebuyModal.hidden && r && r.awaiting.includes(me.id)) {

@@ -728,3 +728,23 @@ html, body {
 
 /* --- visage du croupier (panneau « La table ») --- */
 .t-dealer-face { width: 30px; height: 30px; box-shadow: 0 0 0 1.5px var(--gold); }
+
+/* Croix de fermeture d'une modale */
+.modal-card { position: relative; }
+.modal-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid rgba(245,233,200,0.25);
+  background: rgba(0,0,0,0.3);
+  color: rgba(245,233,200,0.8);
+  font-size: 1rem;
+  cursor: pointer;
+}
+.modal-close:active { transform: scale(0.92); }
+.rebuy-see { width: 100%; margin-top: 8px; }
