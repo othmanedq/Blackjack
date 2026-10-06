@@ -413,6 +413,28 @@ console.log('✓ paris annexes : Perfect Pairs et 21+3');
   console.log('✓ un pré-choix devenu invalide retombe sur un tour manuel sans bloquer la table');
 })();
 
+// ---------------------------------------------------------- quitter la table
+
+(() => {
+  const game = new Game(() => {}, { betTimeMs: 100000, turnTimeMs: 100000 });
+  game.addPlayer({ token: 'a', name: 'Alice' });
+  const bob = game.addPlayer({ token: 'b', name: 'Bob' });
+  game.setGameMode('table');
+  game.startBetting();
+  game.placeBet('a', 100);
+  assert.throws(() => game.leaveTable('a'), /mise est sur la table/i, 'pas de départ avec une mise engagée');
+  bob.balance = 640;
+  // Bob part sans avoir misé : Alice était la seule à attendre, on distribue.
+  game.leaveTable('b');
+  assert.ok(!game.players.has('b'));
+  assert.strictEqual(game.phase === 'playing' || game.phase === 'results' || game.phase === 'insurance', true);
+  game.clearTimers();
+  // Il revient avec le même appareil : il retrouve ses jetons.
+  const back = game.addPlayer({ token: 'b', name: 'Bob' });
+  assert.strictEqual(back.balance, 640);
+  console.log('✓ quitter la table : interdit avec une mise engagée, jetons gardés au retour');
+})();
+
 // ---------------------------------------------------------------------- split
 
 (() => {

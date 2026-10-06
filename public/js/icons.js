@@ -45,6 +45,7 @@ const ICONS = {
   check: '<path d="M4.5 12.5l5.5 5.5L19.5 6.5"/>',
   cross: '<path d="M6 6l12 12M18 6L6 18"/>',
   repeat: '<path d="M4 11.5V9.8A3.8 3.8 0 0 1 7.8 6H19"/><path d="M15.8 2.8L19 6l-3.2 3.2"/><path d="M20 12.5v1.7a3.8 3.8 0 0 1-3.8 3.8H5"/><path d="M8.2 21.2L5 18l3.2-3.2"/>',
+  logout: '<path d="M9.5 20.5H5.6a1.6 1.6 0 0 1-1.6-1.6V5.1a1.6 1.6 0 0 1 1.6-1.6h3.9"/><path d="M15.5 16.5L20 12l-4.5-4.5M20 12H9.5"/>',
   smile: '<circle cx="12" cy="12" r="8.5"/><path d="M8.2 14.2c1.9 2.4 5.7 2.4 7.6 0"/><circle cx="9" cy="9.8" r="1.1" class="i-solid"/><circle cx="15" cy="9.8" r="1.1" class="i-solid"/>',
   eye: '<path d="M2 12s3.6-6.8 10-6.8S22 12 22 12s-3.6 6.8-10 6.8S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   arrowUp: '<path d="M12 20V5M5.6 11.4L12 5l6.4 6.4"/>',

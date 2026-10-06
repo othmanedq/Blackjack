@@ -365,16 +365,44 @@ class Game {
     p.betPlaced = true;
     p.inRound = true;
     p.hands = [{ cards: [], bet, status: 'waiting', doubled: false }];
-    // Tous ceux qui PEUVENT miser ont misé → on distribue sans attendre.
-    // (Les joueurs à sec ne bloquent pas la table.)
+    if (!this.dealIfAllBet()) this.push();
+  }
+
+  /**
+   * Tous ceux qui PEUVENT miser ont misé → on distribue sans attendre la fin
+   * du chrono. (Les joueurs à sec ne bloquent pas la table.)
+   * @returns {boolean} true si la distribution a eu lieu
+   */
+  dealIfAllBet() {
+    if (this.phase !== 'betting') return false;
     const connected = [...this.players.values()].filter((x) => x.connected);
     const allBet = connected.every((x) => x.betPlaced || x.balance < this.opts.minBet);
-    if (connected.some((x) => x.betPlaced) && allBet) {
-      clearTimeout(this.timers.bet);
-      this.deal();
-    } else {
-      this.push();
+    if (!connected.some((x) => x.betPlaced) || !allBet) return false;
+    clearTimeout(this.timers.bet);
+    this.deal();
+    return true;
+  }
+
+  /**
+   * Un joueur quitte la table de lui-même. Interdit avec une main engagée
+   * (sa mise est déjà sur le tapis). Ses jetons partent au vestiaire : s'il
+   * revient avec le même appareil, il retrouve son solde.
+   */
+  leaveTable(token) {
+    const p = this.players.get(token);
+    if (!p) throw new Error('Tu n’es pas à la table.');
+    if (p.inRound && this.roundInProgress()) {
+      throw new Error('Termine d’abord ta main : ta mise est sur la table.');
     }
+    p.connected = false;
+    p.disconnectedAt = Date.now();
+    this.parkPlayer(token);
+    if (this.players.size === 0 && this.roundInProgress()) {
+      this.clearTimers();
+      this.phase = 'lobby';
+    }
+    // Il était peut-être le dernier à ne pas avoir misé.
+    if (!this.dealIfAllBet()) this.push();
   }
 
   /** Nouveau sabot mélangé, avec des identifiants de carte encore inutilisés. */

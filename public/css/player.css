@@ -805,3 +805,16 @@ html, body {
   .game.has-felt > .preset-hint { grid-row: 6; }
   .game.has-felt > .actions { grid-row: 7; grid-template-columns: repeat(4, 1fr); }
 }
+
+/* --- quitter la table --- */
+.leave-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 0.85rem;
+  padding: 10px 12px;
+  color: rgba(245, 233, 200, 0.6);
+}
+.leave-btn.armed { border-color: rgba(255, 92, 92, 0.6); color: #ffb3b3; background: rgba(255, 92, 92, 0.1); }

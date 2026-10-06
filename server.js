@@ -313,6 +313,18 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Un joueur quitte la table de lui-même (ses jetons l'attendent au vestiaire).
+  socket.on('player:leave', (ack) => {
+    respond(ack, () => {
+      const token = socketPlayer.get(socket.id);
+      if (!token) throw new Error('Rejoins la partie d’abord.');
+      game.leaveTable(token);
+      for (const [sid, t] of [...socketPlayer]) {
+        if (t === token) socketPlayer.delete(sid);
+      }
+    });
+  });
+
   // Exclusion d'un joueur par le chef de table.
   socket.on('player:kick', ({ target } = {}, ack) => {
     respond(ack, () => {

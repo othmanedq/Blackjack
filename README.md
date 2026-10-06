@@ -72,6 +72,7 @@ Toute l'interface utilise des **icônes SVG dessinées à la main** (`public/js/
 
 ### Gestion de la table
 
+- **Quitter la table** : un bouton sur le téléphone, disponible tant qu'on n'a pas de mise engagée (deux taps : le second confirme). Les jetons partent au vestiaire : en revenant avec le même appareil, on les retrouve.
 - **Exclure un joueur** : le **chef de table** peut exclure quelqu'un, uniquement entre deux manches (jamais en pleine main). Le joueur exclu peut revenir, mais comme un nouveau joueur — il ne récupère pas son ancien solde.
 - **Déconnexion** : un joueur déconnecté garde ses jetons. Au lancement de la manche suivante il quitte la table, mais son solde et son identité sont conservés « au vestiaire » : s'il revient, il retrouve **exactement ses jetons** (aucune remise à la cave de départ).
 

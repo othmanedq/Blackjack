@@ -67,6 +67,8 @@ const els = {
   tableActions: document.getElementById('table-actions'),
   giveBtn: document.getElementById('give-btn'),
   kickBtn: document.getElementById('kick-btn'),
+  leaveBtn: document.getElementById('leave-btn'),
+  leaveLabel: document.getElementById('leave-label'),
   pmModal: document.getElementById('pm-modal'),
   pmTitle: document.getElementById('pm-title'),
   pmHint: document.getElementById('pm-hint'),
@@ -727,6 +729,37 @@ socket.on('player:gift', ({ fromName, amount } = {}) => {
   if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
 });
 
+/* ---------------------------- quitter la table ---------------------------- */
+
+// Premier tap : demande de confirmation (3 s) ; second tap : on part vraiment.
+let leaveArmedUntil = 0;
+let leaveTimer = null;
+
+function resetLeaveBtn() {
+  leaveArmedUntil = 0;
+  clearTimeout(leaveTimer);
+  els.leaveBtn.classList.remove('armed');
+  els.leaveLabel.textContent = 'Quitter la table';
+}
+
+els.leaveBtn.addEventListener('click', () => {
+  sfx.click();
+  if (Date.now() > leaveArmedUntil) {
+    leaveArmedUntil = Date.now() + 3000;
+    els.leaveBtn.classList.add('armed');
+    els.leaveLabel.textContent = 'Touche encore pour confirmer';
+    clearTimeout(leaveTimer);
+    leaveTimer = setTimeout(resetLeaveBtn, 3000);
+    return;
+  }
+  resetLeaveBtn();
+  socket.emit('player:leave', (res) => {
+    if (res && !res.ok) return showToast(res.message);
+    // Même identité conservée : en revenant, il retrouve ses jetons.
+    leaveToLobby('Tu as quitté la table. Tes jetons t’attendent si tu reviens avec cet appareil.');
+  });
+});
+
 /* -------------------- table repliable + chef de table -------------------- */
 
 let tableCollapsed = JSON.parse(localStorage.getItem('bj_table_collapsed') || 'false');
@@ -839,6 +872,10 @@ function render() {
   els.kickBtn.hidden = !(isChef && betweenRounds && hasOthers);
   els.giveBtn.hidden = !canGive;
   els.tableActions.hidden = els.kickBtn.hidden && els.giveBtn.hidden;
+  // Quitter : jamais avec une main engagée (la mise est sur le tapis).
+  const roundOn = ['betting', 'insurance', 'playing', 'dealer'].includes(state.phase);
+  els.leaveBtn.hidden = roundOn && me.inRound;
+  if (els.leaveBtn.hidden) resetLeaveBtn();
   renderPlayerModal();
 
   // Statut + message central — badge = [classe, icône, libellé]
