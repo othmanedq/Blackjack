@@ -58,6 +58,8 @@ Cette proposition n'est offerte que dans les 20 minutes suivant la déconnexion,
 - Interface **mobile-first**, sans scroll parasite.
 - Lobby : pseudo + avatar + couleur.
 - Mise avec des **jetons tactiles** (10 / 25 / 50 / 100 / 500) ou en un tap avec **All-in** (tout le solde).
+- **Paris annexes** optionnels : on touche la case « Paires » ou « 21+3 » puis on y pose des jetons (voir plus bas).
+- **Réactions** : le bouton visage en haut à droite ouvre 8 expressions ; celle choisie s'affiche en bulle sur ta place, à l'écran de la table et sur les téléphones des autres (une réaction toutes les 1,5 s au plus).
 - **Assurance** proposée automatiquement quand le croupier montre un As, jusqu'à la moitié de la mise.
 - Gros boutons **Hit / Stand / Double / Split**, actifs à son tour (vibration du téléphone quand c'est à soi).
 - **Pré-choix** : en attendant son tour, on peut déjà taper l'action voulue (ex. Stand sur une main forte) — elle se joue automatiquement dès que le tour arrive vraiment, sans avoir à surveiller l'écran. Retaper le même bouton annule le pré-choix. **Ton intention reste secrète** : le serveur ne la transmet qu'à toi, elle n'apparaît ni sur les autres téléphones ni sur l'écran de la table.
@@ -85,8 +87,20 @@ Toute l'interface utilise des **icônes SVG dessinées à la main** (`public/js/
 | Double Down | sur les 2 premières cartes, si le solde le permet |
 | Split | sur une paire de même rang ; **resplit autorisé** si une nouvelle paire apparaît, jusqu'à 4 mains au total |
 | Assurance | proposée quand le croupier montre un **As**, jusqu'à la moitié de la mise, payée **2:1** si le croupier a effectivement blackjack |
+| Perfect Pairs | pari annexe sur les 2 premières cartes : paire mixte **6:1**, de même couleur **12:1**, parfaite **25:1** |
+| 21+3 | pari annexe sur les 2 cartes + la carte visible du croupier : couleur **5:1**, suite **10:1**, brelan **30:1**, quinte flush **40:1**, brelan couleur **100:1** |
 | Timers | 30 s pour miser, 30 s par tour, 12 s pour l'assurance (refus par défaut) |
 | Jetons | cave de départ choisie par le chef de table avant la 1ère manche, **pas de reset automatique** |
+
+## Paris annexes
+
+Les deux paris annexes sont optionnels, plafonnés chacun à la mise principale, et **réglés dès la distribution** : ils ne dépendent que des cartes déjà visibles, donc la suite de la main (split, double, croupier) ne les change pas. Les gains s'ajoutent au solde immédiatement et au bilan de la manche.
+
+Ce sont de mauvais paris, comme dans un vrai casino : sur un sabot de 6 jeux, l'avantage de la maison est d'environ **6,1 %** pour Perfect Pairs et **4,6 %** pour 21+3 (calcul exact), contre environ 0,5 % pour la partie principale jouée correctement. Ils sont là pour le frisson, pas pour gagner.
+
+## Le croupier a un visage
+
+Le croupier affiche une expression qui suit la partie : sourire en coin pendant les mises, bras croisés pendant que les joueurs jouent, rire quand quelqu'un saute, choqué devant un blackjack ou un pari annexe gagnant, triste quand la table gagne, énervé quand il saute. Les visages sont dans `asset/` (`face-<expression>.webp`), servis sous `/asset/`.
 
 ## Cave de départ & re-cave
 
@@ -106,6 +120,7 @@ Un joueur qui se déconnecte pendant un vote ne le bloque pas — l'unanimité n
 ```
 Blackjack/
 ├── server.js              # Serveur Express + Socket.io, IP locale, QR code
+├── asset/                 # Visages (réactions des joueurs, croupier)
 ├── game/
 │   └── blackjack.js       # Logique de jeu autoritaire (état, tours, paiements)
 ├── public/

@@ -32,10 +32,19 @@ const els = {
   meTimerFill: document.querySelector('#me-timer > i'),
   betPanel: document.getElementById('bet-panel'),
   betAmount: document.getElementById('bet-amount'),
+  betSpots: document.getElementById('bet-spots'),
+  sideHelp: document.getElementById('side-help'),
+  mySide: document.getElementById('my-side'),
+  reactBtn: document.getElementById('react-btn'),
+  reactTray: document.getElementById('react-tray'),
+  tDealerFace: document.getElementById('t-dealer-face'),
   betConfirm: document.getElementById('bet-confirm'),
   betClear: document.getElementById('bet-clear'),
   betAllin: document.getElementById('bet-allin'),
   betAllinLabel: document.getElementById('bet-allin-label'),
+  betRebet: document.getElementById('bet-rebet'),
+  betRebetLabel: document.getElementById('bet-rebet-label'),
+  betActions: document.querySelector('.bet-actions'),
   insurancePanel: document.getElementById('insurance-panel'),
   insuranceText: document.getElementById('insurance-text'),
   insuranceActions: document.getElementById('insurance-actions'),
@@ -50,6 +59,8 @@ const els = {
   configHint: document.getElementById('config-hint'),
   rebuyPanel: document.getElementById('rebuy-panel'),
   rebuyBody: document.getElementById('rebuy-body'),
+  rebuyModal: document.getElementById('rebuy-modal'),
+  rebuyModalBody: document.getElementById('rebuy-modal-body'),
   tableActions: document.getElementById('table-actions'),
   giveBtn: document.getElementById('give-btn'),
   kickBtn: document.getElementById('kick-btn'),
@@ -89,7 +100,15 @@ let joined = false;
 let joining = false; // une inscription est en cours (évite un faux « exclu »)
 let state = null;
 let prevMe = null;
-let pendingBet = 0;
+// Mise en préparation : principale + paris annexes, et la case où vont les jetons.
+let pending = { main: 0, pairs: 0, trio: 0 };
+let betSpot = 'main';
+const pendingTotal = () => pending.main + pending.pairs + pending.trio;
+// Dernière mise confirmée (principale + annexes), rejouable en un tap.
+let lastBet = null;
+try { lastBet = JSON.parse(localStorage.getItem('bj_last_bet') || 'null'); } catch { lastBet = null; }
+const betTotal = (b) => b.main + (b.pairs || 0) + (b.trio || 0);
+const dealerFace = createDealerFace([els.tDealerFace]);
 
 /* ------------------------------ lobby / join ------------------------------ */
 
@@ -160,7 +179,9 @@ function join(opts = {}) {
 /** Repasse à l'écran d'accueil (sans réinscription automatique). */
 function leaveToLobby(message) {
   joined = false;
-  pendingBet = 0;
+  pending = { main: 0, pairs: 0, trio: 0 };
+  betSpot = 'main';
+  closeReactTray();
   els.screenGame.hidden = true;
   els.screenLobby.hidden = false;
   els.joinError.textContent = message || '';
@@ -199,17 +220,61 @@ socket.on('state', (s) => {
   state = s;
   clock.sync(s.serverNow);
   render();
+  dealerFace.update(s);
 });
 
 /* --------------------------------- mise --------------------------------- */
+
+/* Jetons adaptés au solde : avec 20 000 jetons, personne ne veut taper
+   cinquante fois sur un jeton de 10. On garde 5 valeurs consécutives de
+   l'échelle classique des casinos, la plus grosse valant au plus le quart
+   du solde (et jamais moins que l'échelle de base 10 → 250). */
+const CHIP_LADDER = [10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000, 250000, 500000];
+const CHIP_COLORS = {
+  10: '#2471a3', 25: '#1e8449', 50: '#b03a2e', 100: '#1c2833', 250: '#c2185b',
+  500: '#7d3c98', 1000: '#b7950b', 2500: '#d35400', 5000: '#5d6d7e', 10000: '#117a65',
+  25000: '#922b21', 50000: '#1a5276', 100000: '#6c3483', 250000: '#9a7d0a', 500000: '#212f3c',
+};
+const CHIP_COUNT = 5;
+
+function chipValues(balance) {
+  let top = CHIP_COUNT - 1;
+  while (top + 1 < CHIP_LADDER.length && CHIP_LADDER[top + 1] <= balance / 4) top++;
+  return CHIP_LADDER.slice(top - CHIP_COUNT + 1, top + 1);
+}
+
+function chipLabel(v) {
+  if (v >= 1e6) return `${v / 1e6}M`.replace('.', ',');
+  if (v >= 1000) return `${v / 1000}k`.replace('.', ',');
+  return String(v);
+}
+
+/** Met à jour les valeurs des jetons d'une rangée (attr : 'chip' ou 'pmChip'). */
+function syncChips(selector, attr, balance) {
+  const values = chipValues(balance);
+  document.querySelectorAll(selector).forEach((chip, i) => {
+    const v = values[i];
+    if (Number(chip.dataset[attr]) === v) return;
+    chip.dataset[attr] = String(v);
+    chip.textContent = chipLabel(v);
+    chip.className = 'chip';
+    chip.style.setProperty('--chip-color', CHIP_COLORS[v]);
+  });
+}
 
 document.querySelectorAll('.chip[data-chip]').forEach((chip) => {
   chip.addEventListener('click', () => {
     const me = findMe();
     if (!me) return;
     const val = Number(chip.dataset.chip);
-    if (pendingBet + val > me.balance) return showToast('Solde insuffisant.');
-    pendingBet += val;
+    if (pendingTotal() + val > me.balance) return showToast('Solde insuffisant.');
+    if (betSpot !== 'main') {
+      if (pending.main === 0) return showToast('Pose d’abord ta mise principale.');
+      if (pending[betSpot] + val > pending.main) {
+        return showToast('Un pari annexe ne peut pas dépasser ta mise principale.');
+      }
+    }
+    pending[betSpot] += val;
     sfx.chip();
     chip.classList.remove('chip-pop');
     void chip.offsetWidth;
@@ -218,8 +283,17 @@ document.querySelectorAll('.chip[data-chip]').forEach((chip) => {
   });
 });
 
+els.betSpots.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-spot]');
+  if (!btn) return;
+  sfx.click();
+  betSpot = btn.dataset.spot;
+  renderBet(findMe());
+});
+
 els.betClear.addEventListener('click', () => {
-  pendingBet = 0;
+  pending = { main: 0, pairs: 0, trio: 0 };
+  betSpot = 'main';
   sfx.click();
   renderBet(findMe());
 });
@@ -227,7 +301,9 @@ els.betClear.addEventListener('click', () => {
 els.betAllin.addEventListener('click', () => {
   const me = findMe();
   if (!me || me.balance < state.minBet) return;
-  pendingBet = me.balance;
+  // All-in : tout sur la mise principale, pas de pari annexe.
+  pending = { main: me.balance, pairs: 0, trio: 0 };
+  betSpot = 'main';
   sfx.chip();
   renderBet(me);
 });
@@ -268,13 +344,62 @@ function renderInsurance(me) {
   }
 }
 
-els.betConfirm.addEventListener('click', () => {
-  if (pendingBet <= 0) return;
-  socket.emit('player:bet', { amount: pendingBet }, (res) => {
+function sendBet(bet) {
+  const sideBets = { pairs: bet.pairs || 0, trio: bet.trio || 0 };
+  socket.emit('player:bet', { amount: bet.main, sideBets }, (res) => {
     if (!res.ok) return showToast(res.message);
     sfx.chip();
-    pendingBet = 0;
+    lastBet = { main: bet.main, pairs: sideBets.pairs, trio: sideBets.trio };
+    localStorage.setItem('bj_last_bet', JSON.stringify(lastBet));
+    pending = { main: 0, pairs: 0, trio: 0 };
+    betSpot = 'main';
   });
+}
+
+els.betConfirm.addEventListener('click', () => {
+  if (pending.main <= 0) return;
+  sendBet(pending);
+});
+
+// Remise : rejoue directement la mise de la manche précédente.
+els.betRebet.addEventListener('click', () => {
+  const me = findMe();
+  if (!me || !lastBet) return;
+  if (betTotal(lastBet) > me.balance) return showToast('Solde insuffisant pour remiser.');
+  sendBet(lastBet);
+});
+
+/* ------------------------------- réactions -------------------------------- */
+
+els.reactTray.innerHTML = FACES.map((f) =>
+  `<button type="button" class="react-choice" data-face="${f}"><img class="face" src="${faceSrc(f)}" alt="" /></button>`
+).join('');
+
+function closeReactTray() {
+  els.reactTray.hidden = true;
+  els.reactBtn.setAttribute('aria-expanded', 'false');
+}
+
+els.reactBtn.addEventListener('click', () => {
+  sfx.click();
+  const open = els.reactTray.hidden;
+  els.reactTray.hidden = !open;
+  els.reactBtn.setAttribute('aria-expanded', String(open));
+});
+
+els.reactTray.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-face]');
+  if (!btn) return;
+  closeReactTray();
+  socket.emit('player:react', { face: btn.dataset.face }, (res) => {
+    if (res && !res.ok) showToast(res.message);
+  });
+});
+
+socket.on('reaction', ({ playerId, face } = {}) => {
+  if (playerId === token) return showReactionBubble(els.meAvatar, face);
+  const row = otherEls.get(playerId);
+  if (row) showReactionBubble(row.querySelector('.t-avatar'), face);
 });
 
 /* ------------------------------- mode de jeu ------------------------------ */
@@ -308,12 +433,21 @@ els.stakeOptions.addEventListener('click', (e) => {
   });
 });
 
-els.rebuyBody.addEventListener('click', (e) => {
+// Le joueur à sec peut repousser la modale ; elle revient s'il retombe à sec plus tard.
+let rebuyDismissed = false;
+
+function onRebuyClick(e) {
   const btn = e.target.closest('button[data-rebuy]');
   if (!btn) return;
   sfx.click();
   const action = btn.dataset.rebuy;
-  if (action === 'request') {
+  if (action === 'later') {
+    rebuyDismissed = true;
+    render();
+  } else if (action === 'open') {
+    rebuyDismissed = false;
+    render();
+  } else if (action === 'request') {
     socket.emit('player:requestRebuy', (res) => {
       if (res && !res.ok) showToast(res.message);
     });
@@ -322,7 +456,9 @@ els.rebuyBody.addEventListener('click', (e) => {
       if (res && !res.ok) showToast(res.message);
     });
   }
-});
+}
+els.rebuyBody.addEventListener('click', onRebuyClick);
+els.rebuyModalBody.addEventListener('click', onRebuyClick);
 
 // Re-cave refusée : on quitte la table, avec une identité neuve pour revenir.
 socket.on('player:kicked', ({ message } = {}) => {
@@ -361,34 +497,72 @@ function renderConfig(me) {
   }
 }
 
+/** Remplace le contenu seulement s'il a changé (un bouton recréé à chaque état perdrait le tap). */
+function setHtml(el, html) {
+  if (el.innerHTML !== html) el.innerHTML = html;
+}
+
 function renderRebuy(me) {
   const r = state.rebuyRequest;
   const isBroke = me.balance < state.minBet;
-  let html = '';
+  if (!isBroke) rebuyDismissed = false;
+  const requester = r && state.players.find((p) => p.id === r.playerId);
+  const progress = r
+    ? `<div class="rebuy-progress"><i style="width:${r.total ? (r.approved / r.total) * 100 : 0}%"></i></div>
+       <p class="rebuy-count">${r.approved}/${r.total} accepté${r.approved > 1 ? 's' : ''} · unanimité requise</p>`
+    : '';
+
+  let modal = '';
+  let panel = '';
   if (r && r.playerId === me.id) {
-    html = `<p class="rebuy-text">Demande envoyée.<br>
-      <strong>${r.approved}/${r.total}</strong> joueur(s) ont accepté — il faut l'unanimité.<br>
-      <small>Un seul refus et tu quittes la table.</small></p>`;
+    modal = `<p class="modal-text">Demande envoyée aux autres joueurs pour
+      <strong>${fmt.format(r.amount)}</strong> jetons.</p>
+      ${progress}
+      <p class="rebuy-warn">Un seul refus et tu quittes la table.</p>`;
   } else if (r && r.awaiting.includes(me.id)) {
-    html = `<p class="rebuy-text"><strong>${esc(r.playerName)}</strong> n'a plus de jetons et demande
-      une re-cave de <strong>${fmt.format(r.amount)}</strong>.<br>
-      <small>Unanimité requise — un refus l'exclut de la table.</small></p>
+    const who = requester
+      ? `<div class="resume-identity">
+          <span class="resume-avatar" style="--p-color:${esc(requester.color)}">${avatarHtml(requester.avatar)}</span>
+          <span class="resume-name">${esc(requester.name)}</span>
+        </div>`
+      : '';
+    modal = `${who}
+      <p class="modal-text"><strong>${esc(r.playerName)}</strong> n'a plus de jetons et demande
+        une re-cave de <strong>${fmt.format(r.amount)}</strong>.</p>
+      ${progress}
+      <p class="rebuy-warn">Un seul refus l'exclut de la table.</p>
       <div class="rebuy-actions">
         <button type="button" class="rebuy-yes" data-rebuy="yes">${iconHtml('check')} Accepter</button>
         <button type="button" class="rebuy-no" data-rebuy="no">${iconHtml('cross')} Refuser</button>
       </div>`;
   } else if (r) {
-    html = `<p class="rebuy-text">Re-cave de <strong>${esc(r.playerName)}</strong> :
+    panel = `<p class="rebuy-text">${iconHtml('chipPlus')} Re-cave de <strong>${esc(r.playerName)}</strong> :
       ${r.approved}/${r.total} ont accepté…</p>`;
+  } else if (isBroke && !me.inRound && !rebuyDismissed) {
+    modal = `<p class="modal-text">Tu n'as plus assez de jetons pour miser.<br>
+        Demande une re-cave de <strong>${fmt.format(state.startingBalance)}</strong> aux autres joueurs.</p>
+      <p class="rebuy-warn">Il faut que tout le monde accepte : un seul refus et tu quittes la table.</p>
+      <div class="modal-actions">
+        <button type="button" class="cta rebuy-request" data-rebuy="request">
+          ${iconHtml('chipPlus')} Demander une re-cave
+        </button>
+        <button type="button" class="ghost-btn" data-rebuy="later">Pas maintenant</button>
+      </div>`;
   } else if (isBroke && !me.inRound) {
-    html = `<p class="rebuy-text">Plus de jetons.<br>Demande une re-cave aux autres joueurs,
-      ou quitte la table.</p>
-      <button type="button" class="cta rebuy-request" data-rebuy="request">
-        ${iconHtml('chipPlus')} Demander une re-cave (${fmt.format(state.startingBalance)})
-      </button>`;
+    panel = `<button type="button" class="cta rebuy-request" data-rebuy="open">
+      ${iconHtml('chipPlus')} Demander une re-cave (${fmt.format(state.startingBalance)})
+    </button>`;
   }
-  els.rebuyPanel.hidden = !html;
-  els.rebuyBody.innerHTML = html;
+
+  // Une modale qui s'ouvre pour voter doit se remarquer.
+  if (modal && els.rebuyModal.hidden && r && r.awaiting.includes(me.id)) {
+    sfx.turn();
+    if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
+  }
+  els.rebuyModal.hidden = !modal;
+  setHtml(els.rebuyModalBody, modal);
+  els.rebuyPanel.hidden = !panel;
+  setHtml(els.rebuyBody, panel);
 }
 
 /* ------------------- don de jetons & exclusion (modale) ------------------- */
@@ -435,6 +609,7 @@ function renderPlayerModal() {
 
   if (pm.mode === 'give') {
     els.pmAmount.textContent = fmt.format(pm.amount);
+    syncChips('[data-pm-chip]', 'pmChip', me.balance);
     document.querySelectorAll('[data-pm-chip]').forEach((chip) => {
       chip.disabled = pm.amount + Number(chip.dataset.pmChip) > me.balance;
     });
@@ -499,7 +674,7 @@ els.pmConfirm.addEventListener('click', () => {
 
 // Un don reçu : petit retour visible et sonore.
 socket.on('player:gift', ({ fromName, amount } = {}) => {
-  showToast(`${fromName} t’a donné ${fmt.format(amount)} jetons !`);
+  showToast(`${fromName} t’a donné ${fmt.format(amount)} jetons !`, 'win');
   sfx.win();
   burstConfetti(30);
   if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
@@ -704,34 +879,82 @@ function statusBadge(me) {
   return ['waiting', 'clock', 'En attente'];
 }
 
+/**
+ * Gain ou perte des seules mains jouées, sans paris annexes ni assurance :
+ * c'est lui qui dit si la main est gagnée, perdue ou à égalité. Sinon un push
+ * accompagné d'un pari annexe perdu s'affichait « Perdu ».
+ */
+function mainHandsNet(me) {
+  return me.hands.reduce((n, h) => {
+    if (h.result === 'win') return n + h.bet;
+    if (h.result === 'blackjack') return n + Math.floor(h.bet * 1.5);
+    if (h.result === 'lose') return n - h.bet;
+    return n;
+  }, 0);
+}
+
+const signed = (v) => (v >= 0 ? `+${fmt.format(v)}` : `−${fmt.format(-v)}`);
+
 function overallResult(me) {
+  const main = mainHandsNet(me);
   const net = me.lastNet;
+  // Les paris annexes et l'assurance n'ont qu'une ligne de bilan à part.
+  const extra = net !== main ? `\nBilan de la manche : ${signed(net)} jetons` : '';
   if (me.hands.some((h) => h.result === 'blackjack')) {
     return {
       badge: ['blackjack', 'spade', 'Blackjack !'],
-      msg: `BLACKJACK !\n+${fmt.format(net)} jetons (payé 3:2)`,
+      msg: `BLACKJACK !\n${signed(main)} jetons (payé 3:2)${extra}`,
       cls: 'win',
     };
   }
-  if (net > 0) return { badge: ['win', 'trophy', 'Gagné'], msg: `Bien joué !\n+${fmt.format(net)} jetons`, cls: 'win' };
-  if (net < 0) return { badge: ['lose', 'trendDown', 'Perdu'], msg: `Perdu…\n−${fmt.format(-net)} jetons`, cls: 'lose' };
-  return { badge: ['push', 'check', 'Égalité'], msg: 'Égalité (push).\nTa mise est rendue.', cls: '' };
+  if (main > 0) return { badge: ['win', 'trophy', 'Gagné'], msg: `Bien joué !\n${signed(main)} jetons${extra}`, cls: 'win' };
+  if (main < 0) return { badge: ['lose', 'trendDown', 'Perdu'], msg: `Perdu…\n${signed(main)} jetons${extra}`, cls: 'lose' };
+  return { badge: ['push', 'check', 'Égalité'], msg: `Égalité (push).\nTa mise est rendue.${extra}`, cls: '' };
 }
+
+const SIDE_HELP = {
+  pairs: 'Tes 2 premières cartes font une paire : mixte 6:1 · même couleur 12:1 · parfaite 25:1.',
+  trio: 'Tes 2 cartes + la carte visible du croupier : couleur 5:1 · suite 10:1 · brelan 30:1 · quinte flush 40:1 · brelan couleur 100:1.',
+};
 
 function renderBet(me) {
   if (!me) return;
-  els.betAmount.textContent = fmt.format(pendingBet);
-  els.betConfirm.disabled = pendingBet < state.minBet;
-  els.betConfirm.textContent = pendingBet >= state.minBet ? `Miser ${fmt.format(pendingBet)}` : `Min. ${state.minBet}`;
-  document.querySelectorAll('.chip[data-chip]').forEach((chip) => {
-    chip.disabled = pendingBet + Number(chip.dataset.chip) > me.balance;
+  const total = pendingTotal();
+  els.betSpots.querySelectorAll('[data-spot]').forEach((btn) => {
+    const key = btn.dataset.spot;
+    btn.classList.toggle('selected', key === betSpot);
+    btn.classList.toggle('filled', pending[key] > 0);
+    btn.querySelector('.spot-amount').textContent = fmt.format(pending[key]);
   });
-  const atMax = pendingBet === me.balance && me.balance >= state.minBet;
-  els.betAllin.disabled = me.balance < state.minBet || pendingBet === me.balance;
+  els.sideHelp.hidden = betSpot === 'main';
+  if (betSpot !== 'main') els.sideHelp.textContent = SIDE_HELP[betSpot];
+  els.betAmount.textContent = fmt.format(total);
+  els.betConfirm.disabled = pending.main < state.minBet;
+  els.betConfirm.textContent = pending.main >= state.minBet ? `Miser ${fmt.format(total)}` : `Min. ${state.minBet}`;
+  // Le solde ne bouge pas pendant qu'on prépare sa mise : les jetons restent stables.
+  syncChips('.chip[data-chip]', 'chip', me.balance);
+  document.querySelectorAll('.chip[data-chip]').forEach((chip) => {
+    const val = Number(chip.dataset.chip);
+    chip.disabled = total + val > me.balance ||
+      (betSpot !== 'main' && pending[betSpot] + val > pending.main);
+  });
+  const atMax = pending.main === me.balance && me.balance >= state.minBet;
+  els.betAllin.disabled = me.balance < state.minBet || pending.main === me.balance;
   els.betAllinLabel.textContent = atMax ? 'All-in' : `All-in (${fmt.format(me.balance)})`;
+
+  const canRebet = !!lastBet && lastBet.main >= state.minBet;
+  els.betRebet.hidden = !canRebet;
+  els.betActions.classList.toggle('with-rebet', canRebet);
+  if (canRebet) {
+    els.betRebet.disabled = betTotal(lastBet) > me.balance;
+    els.betRebetLabel.textContent = `Remiser ${fmt.format(betTotal(lastBet))}`;
+  }
 }
 
 function renderHands(me) {
+  const sideHtml = sideTagsHtml(me);
+  els.mySide.hidden = !sideHtml;
+  if (els.mySide.innerHTML !== sideHtml) els.mySide.innerHTML = sideHtml;
   while (els.myHands.children.length > me.hands.length) els.myHands.lastChild.remove();
   me.hands.forEach((h, i) => {
     let box = els.myHands.children[i];
@@ -923,13 +1146,26 @@ function playFeedback(me, myTurn) {
     }
   });
 
+  // Paris annexes réglés à la distribution.
+  if (me.sideResults && !prevMe.sideResults) {
+    const won = Object.entries(me.sideResults).filter(([, r]) => r.win > 0);
+    if (won.length) {
+      const gain = won.reduce((n, [, r]) => n + r.win, 0);
+      showToast(`${won.map(([, r]) => `${r.label} ×${r.mult}`).join(' + ')} : +${fmt.format(gain)} jetons !`, 'win');
+      sfx.blackjack();
+      burstConfetti(60);
+      if (navigator.vibrate) navigator.vibrate([60, 40, 60, 40, 120]);
+    }
+  }
+
   const hadResult = prevMe.hands.some((h) => h.result);
   const hasResult = me.hands.some((h) => h.result);
   if (hasResult && !hadResult) {
-    if (me.lastNet > 0) {
+    const main = mainHandsNet(me);
+    if (main > 0) {
       me.hands.some((h) => h.result === 'blackjack') ? null : sfx.win();
       burstConfetti(45);
-    } else if (me.lastNet < 0) {
+    } else if (main < 0) {
       sfx.lose();
     } else {
       sfx.push();
@@ -971,8 +1207,9 @@ requestAnimationFrame(tick);
 /* --------------------------------- toast --------------------------------- */
 
 let toastTimer = null;
-function showToast(message) {
+function showToast(message, kind = '') {
   els.toast.textContent = message || 'Action impossible.';
+  els.toast.className = `toast ${kind}`;
   els.toast.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => (els.toast.hidden = true), 2600);

@@ -15,6 +15,11 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 app.use(express.static(path.join(__dirname, 'public')));
+// Visages du croupier et des réactions (asset/face-<nom>.webp).
+app.use('/asset', express.static(path.join(__dirname, 'asset'), { maxAge: '7d' }));
+
+const REACTIONS = ['laughing', 'cool', 'smirk', 'shocked', 'crossed', 'sad', 'angry', 'neutral'];
+const REACTION_COOLDOWN_MS = 1500;
 
 // Les téléphones scannent le QR code et tombent sur la vue joueur.
 app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'player.html')));
@@ -57,12 +62,23 @@ function scoreInterface(name, address) {
   return score;
 }
 
-const localIps = getLocalIps();
-// L'adresse peut être forcée : HOST_IP=192.168.1.42 npm start
-const localIp = process.env.HOST_IP || (localIps[0] ? localIps[0].address : 'localhost');
 // Hébergement en ligne (Render, Railway…) : PUBLIC_URL=https://mon-app.onrender.com
 const publicUrl = process.env.PUBLIC_URL ? process.env.PUBLIC_URL.replace(/\/+$/, '') : null;
-const joinUrl = publicUrl ? `${publicUrl}/` : `http://${localIp}:${PORT}/`;
+
+/**
+ * Adresse à afficher, recalculée à chaque appel : si l'ordinateur change de
+ * Wi-Fi pendant que le serveur tourne, son IP change et un QR code figé au
+ * démarrage enverrait les joueurs vers une adresse morte.
+ * L'adresse peut être forcée : HOST_IP=192.168.1.42 npm start
+ */
+function currentAddress() {
+  const localIps = getLocalIps();
+  const localIp = process.env.HOST_IP || (localIps[0] ? localIps[0].address : 'localhost');
+  const joinUrl = publicUrl ? `${publicUrl}/` : `http://${localIp}:${PORT}/`;
+  return { localIps, localIp, joinUrl };
+}
+
+let { localIps, localIp, joinUrl } = currentAddress();
 
 // token socket -> playerId, pour gérer les déconnexions
 const socketPlayer = new Map();
@@ -106,22 +122,39 @@ function clientIp(socket) {
   return addr.replace(/^::ffff:/, '');
 }
 
+/** QR code + adresse de connexion, vers un écran table ou toute la salle 'hosts'. */
+async function sendHostInfo(target) {
+  let qrDataUrl = null;
+  try {
+    qrDataUrl = await QRCode.toDataURL(joinUrl, {
+      margin: 1,
+      width: 480,
+      color: { dark: '#0b1f16', light: '#f5e9c8' },
+    });
+  } catch (err) {
+    // Sans QR code, l'adresse texte reste affichée.
+  }
+  target.emit('host:info', { ip: localIp, port: PORT, url: joinUrl, qrDataUrl });
+}
+
+// Changement de réseau en cours de partie : on met à jour le QR code des écrans table.
+if (!publicUrl && !process.env.HOST_IP) {
+  setInterval(() => {
+    const next = currentAddress();
+    if (next.joinUrl === joinUrl) return;
+    ({ localIps, localIp, joinUrl } = next);
+    console.log(`  Réseau changé — nouvelle adresse joueurs : ${joinUrl}`);
+    sendHostInfo(io.to('hosts'));
+  }, 5000).unref();
+}
+
 io.on('connection', (socket) => {
   // Chaque nouvel écran reçoit l'état courant immédiatement.
   socket.emit('state', game.publicState());
 
-  socket.on('host:register', async () => {
+  socket.on('host:register', () => {
     socket.join('hosts');
-    try {
-      const qrDataUrl = await QRCode.toDataURL(joinUrl, {
-        margin: 1,
-        width: 480,
-        color: { dark: '#0b1f16', light: '#f5e9c8' },
-      });
-      socket.emit('host:info', { ip: localIp, port: PORT, url: joinUrl, qrDataUrl });
-    } catch (err) {
-      socket.emit('host:info', { ip: localIp, port: PORT, url: joinUrl, qrDataUrl: null });
-    }
+    sendHostInfo(socket);
   });
 
   socket.on('host:newRound', () => {
@@ -170,11 +203,25 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('player:bet', ({ amount } = {}, ack) => {
+  socket.on('player:bet', ({ amount, sideBets } = {}, ack) => {
     respond(ack, () => {
       const token = socketPlayer.get(socket.id);
       if (!token) throw new Error('Rejoins la partie d’abord.');
-      game.placeBet(token, amount);
+      game.placeBet(token, amount, sideBets);
+    });
+  });
+
+  // Réaction (visage) : éphémère, diffusée à tous les écrans, hors état de jeu.
+  let lastReactionAt = 0;
+  socket.on('player:react', ({ face } = {}, ack) => {
+    respond(ack, () => {
+      const token = socketPlayer.get(socket.id);
+      if (!token || !game.players.has(token)) throw new Error('Rejoins la partie d’abord.');
+      if (!REACTIONS.includes(face)) throw new Error('Réaction inconnue.');
+      const now = Date.now();
+      if (now - lastReactionAt < REACTION_COOLDOWN_MS) throw new Error('Doucement !');
+      lastReactionAt = now;
+      io.emit('reaction', { playerId: token, face });
     });
   });
 

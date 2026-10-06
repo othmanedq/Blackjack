@@ -29,7 +29,10 @@ const els = {
   muteIcon: document.getElementById('mute-icon'),
   startBtnLabel: document.getElementById('start-btn-label'),
   table: document.getElementById('table'),
+  dealerFace: document.getElementById('dealer-face'),
 };
+
+const dealerFace = createDealerFace([els.dealerFace]);
 
 let state = null;
 let prevState = null;
@@ -47,7 +50,13 @@ socket.on('state', (s) => {
   state = s;
   clock.sync(s.serverNow);
   render();
+  dealerFace.update(s);
   playTransitionEffects();
+});
+
+socket.on('reaction', ({ playerId, face } = {}) => {
+  const seat = seatEls.get(playerId);
+  if (seat) showReactionBubble(seat, face);
 });
 
 els.startBtn.addEventListener('click', () => {
@@ -224,6 +233,7 @@ function renderSeat(p) {
         <span class="seat-balance"></span>
       </div>
       <div class="seat-status"></div>
+      <div class="seat-side" hidden></div>
       <div class="seat-hands"></div>
       <div class="seat-timer timerbar" hidden><i></i></div>`;
     els.seats.appendChild(seat);
@@ -282,6 +292,12 @@ function renderSeat(p) {
   b.className = `badge ${badge[0]}`;
   setLabel(b, badge[1], badge[2]);
   statusEl.appendChild(b);
+
+  // Paris annexes : réglés à la distribution, visibles jusqu'à la manche suivante.
+  const sideEl = seat.querySelector('.seat-side');
+  const sideHtml = sideTagsHtml(p);
+  sideEl.hidden = !sideHtml;
+  if (sideEl.innerHTML !== sideHtml) sideEl.innerHTML = sideHtml;
 
   // Mains
   const handsEl = seat.querySelector('.seat-hands');

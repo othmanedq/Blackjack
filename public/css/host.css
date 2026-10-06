@@ -322,3 +322,10 @@ body {
 .seat.result-win { border-color: rgba(61,220,132,0.65); }
 .seat.result-lose { border-color: rgba(255,92,92,0.5); }
 .seat.result-blackjack { border-color: var(--gold-bright); }
+
+/* Visage du croupier */
+.dealer-face { width: 76px; height: 76px; }
+
+/* Paris annexes sur un siège */
+.seat-side { display: flex; flex-wrap: wrap; gap: 5px; }
+.seat { --bubble: 78px; }

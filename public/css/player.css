@@ -179,6 +179,19 @@ html, body {
 #bet-clear { grid-area: clear; }
 #bet-allin { grid-area: allin; }
 #bet-confirm { grid-area: confirm; }
+#bet-rebet { grid-area: rebet; }
+.bet-actions.with-rebet { grid-template-areas: "clear allin" "rebet confirm"; }
+.rebet-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  align-self: stretch;
+  border-color: rgba(212,175,55,0.45);
+  color: var(--gold-bright);
+  white-space: nowrap;
+}
+.rebet-btn:disabled { opacity: 0.4; pointer-events: none; }
 .ghost-btn {
   background: none;
   border: 1px solid rgba(245,233,200,0.25);
@@ -596,6 +609,122 @@ html, body {
 .rebuy-request { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .rebuy-yes { background: linear-gradient(180deg, #2ecc71, #1d8a4a); }
 .rebuy-no  { background: linear-gradient(180deg, #e74c3c, #a93226); }
-.rebuy-request { width: 100%; margin-top: 10px; }
+.rebuy-request { width: 100%; }
+
+/* --- modale de re-cave --- */
+.rebuy-card .resume-identity { margin-bottom: 12px; }
+.rebuy-progress {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.1);
+  overflow: hidden;
+}
+.rebuy-progress > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #1d8a4a, #2ecc71);
+  transition: width 0.3s ease;
+}
+.rebuy-count {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: rgba(245,233,200,0.75);
+  margin: 7px 0 10px;
+}
+.rebuy-warn {
+  font-size: 0.8rem;
+  color: #ffb3b3;
+  margin-bottom: 14px;
+}
+.rebuy-card .modal-actions { margin-top: 2px; }
 
 .toast { bottom: 105px; }
+
+/* --- paris annexes : cases de mise --- */
+.bet-spots {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr 1fr;
+  gap: 8px;
+  margin: 10px 0 2px;
+}
+.bet-spot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 8px 4px 7px;
+  border-radius: 12px;
+  border: 2px dashed rgba(212,175,55,0.35);
+  background: rgba(0,0,0,0.28);
+  color: var(--cream);
+  font-family: var(--font-ui);
+  cursor: pointer;
+}
+.bet-spot.selected {
+  border-style: solid;
+  border-color: var(--gold-bright);
+  background: linear-gradient(180deg, rgba(212,175,55,0.24), rgba(212,175,55,0.08));
+}
+.spot-name { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(245,233,200,0.75); }
+.spot-amount { font-size: 1.1rem; font-weight: 800; font-variant-numeric: tabular-nums; color: rgba(245,233,200,0.45); }
+.bet-spot.filled .spot-amount { color: var(--gold-bright); }
+.spot-pay { font-size: 0.64rem; color: rgba(245,233,200,0.55); }
+.side-help {
+  text-align: center;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: rgba(245,233,200,0.75);
+  margin: -4px 0 10px;
+}
+.my-side { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-bottom: 4px; }
+
+/* --- réactions --- */
+.me-avatar, .t-avatar { position: relative; }
+.me-avatar { --bubble: 54px; }
+.me-avatar .reaction-bubble { top: 2px; right: auto; left: 30px; }
+.t-other .t-avatar { --bubble: 42px; }
+.t-other .t-avatar .reaction-bubble { top: -12px; right: auto; left: 16px; }
+.react-btn {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid rgba(212,175,55,0.45);
+  background: rgba(0,0,0,0.35);
+  color: var(--gold-bright);
+  font-size: 1.3rem;
+  cursor: pointer;
+}
+.react-btn[aria-expanded="true"] { background: rgba(212,175,55,0.25); }
+.react-tray {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(212,175,55,0.4);
+  background: rgba(7, 19, 13, 0.97);
+  box-shadow: var(--shadow);
+  animation: tray-in 0.18s ease;
+}
+@keyframes tray-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.react-choice {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  justify-self: center;
+  transition: transform 0.1s;
+}
+.react-choice:active { transform: scale(0.88); }
+.react-choice .face { width: 56px; height: 56px; }
+
+/* --- visage du croupier (panneau « La table ») --- */
+.t-dealer-face { width: 30px; height: 30px; box-shadow: 0 0 0 1.5px var(--gold); }

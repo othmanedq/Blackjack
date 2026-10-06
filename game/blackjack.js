@@ -12,6 +12,8 @@
  *  - Double Down (2 premières cartes, solde suffisant)
  *  - Split (paire de même rang), resplit autorisé si une nouvelle paire
  *    apparaît, jusqu'à `maxSplitHands` mains au total pour ce joueur
+ *  - Paris annexes optionnels, réglés dès la distribution :
+ *    Perfect Pairs (2 premières cartes) et 21+3 (2 cartes + carte visible du croupier)
  */
 
 const SUITS = ['♠', '♥', '♦', '♣'];
@@ -52,6 +54,42 @@ function handValue(cards) {
 
 function isNaturalBlackjack(cards) {
   return cards.length === 2 && handValue(cards).total === 21;
+}
+
+/* ------------------------------------------------------------ paris annexes
+ * Gains « X pour 1 » : la mise est rendue en plus du gain.
+ * Avantage de la maison sur un sabot de 6 jeux (calcul exact) :
+ * Perfect Pairs ≈ 6,1 %, 21+3 ≈ 4,6 % — bien plus que la partie principale.
+ */
+
+const SIDE_BETS = ['pairs', 'trio'];
+
+const RED = new Set(['♥', '♦']);
+
+/** Perfect Pairs sur les deux premières cartes du joueur. */
+function evalPerfectPairs(cards) {
+  const [a, b] = cards;
+  if (!a || !b || a.rank !== b.rank) return null;
+  if (a.suit === b.suit) return { kind: 'perfect', label: 'Paire parfaite', mult: 25 };
+  if (RED.has(a.suit) === RED.has(b.suit)) return { kind: 'colored', label: 'Paire de couleur', mult: 12 };
+  return { kind: 'mixed', label: 'Paire mixte', mult: 6 };
+}
+
+/** 21+3 : les deux cartes du joueur + la carte visible du croupier, lues comme une main de poker. */
+function evalTwentyOnePlusThree(cards) {
+  if (cards.length !== 3) return null;
+  const flush = cards.every((c) => c.suit === cards[0].suit);
+  const idx = cards.map((c) => RANKS.indexOf(c.rank)).sort((x, y) => x - y);
+  const trips = idx[0] === idx[2];
+  // L'As est haut ou bas : A-2-3 et Q-K-A sont des suites (pas K-A-2).
+  const straight = !trips && new Set(idx).size === 3 &&
+    (idx[2] - idx[0] === 2 || (idx[0] === 0 && idx[1] === 11 && idx[2] === 12));
+  if (trips && flush) return { kind: 'suitedTrips', label: 'Brelan couleur', mult: 100 };
+  if (straight && flush) return { kind: 'straightFlush', label: 'Quinte flush', mult: 40 };
+  if (trips) return { kind: 'trips', label: 'Brelan', mult: 30 };
+  if (straight) return { kind: 'straight', label: 'Suite', mult: 10 };
+  if (flush) return { kind: 'flush', label: 'Couleur', mult: 5 };
+  return null;
 }
 
 /**
@@ -159,6 +197,8 @@ class Game {
       insuranceBet: 0,
       insuranceDecided: false,
       insuranceResult: null, // 'win' | 'lose' | null (affichage résultats)
+      sideBets: { pairs: 0, trio: 0 },
+      sideResults: null, // { pairs, trio } : { label, mult, win } | null, réglés à la distribution
       lastNet: 0,      // gain/perte de la dernière manche (affichage table)
       joinedAt: Date.now(),
     };
@@ -186,6 +226,8 @@ class Game {
     p.insuranceBet = 0;
     p.insuranceDecided = false;
     p.insuranceResult = null;
+    p.sideBets = { pairs: 0, trio: 0 };
+    p.sideResults = null;
     this.parked.set(token, p);
     // Garde-fou mémoire : on ne conserve que les vestiaires les plus récents.
     if (this.parked.size > this.opts.maxParked) {
@@ -267,6 +309,8 @@ class Game {
       p.insuranceBet = 0;
       p.insuranceDecided = false;
       p.insuranceResult = null;
+      p.sideBets = { pairs: 0, trio: 0 };
+      p.sideResults = null;
       // Pas de re-cave automatique : un joueur à sec doit la demander
       // aux autres (unanimité) ou quitter la table.
     }
@@ -287,7 +331,11 @@ class Game {
     this.push();
   }
 
-  placeBet(token, amount) {
+  /**
+   * @param {object} [sideBets] — { pairs, trio } : paris annexes optionnels,
+   *   chacun plafonné à la mise principale.
+   */
+  placeBet(token, amount, sideBets = {}) {
     if (this.phase !== 'betting') throw new Error('Les mises ne sont pas ouvertes.');
     const p = this.players.get(token);
     if (!p) throw new Error('Joueur inconnu.');
@@ -296,8 +344,18 @@ class Game {
     if (!Number.isFinite(bet) || bet < this.opts.minBet) {
       throw new Error(`Mise minimum : ${this.opts.minBet} jetons.`);
     }
-    if (bet > p.balance) throw new Error('Solde insuffisant.');
-    p.balance -= bet;
+    const side = { pairs: 0, trio: 0 };
+    for (const key of SIDE_BETS) {
+      const raw = sideBets && sideBets[key];
+      if (raw === undefined || raw === null || raw === 0) continue;
+      const v = Math.floor(Number(raw));
+      if (!Number.isFinite(v) || v < 0) throw new Error('Pari annexe invalide.');
+      if (v > bet) throw new Error('Un pari annexe ne peut pas dépasser la mise principale.');
+      side[key] = v;
+    }
+    if (bet + side.pairs + side.trio > p.balance) throw new Error('Solde insuffisant.');
+    p.balance -= bet + side.pairs + side.trio;
+    p.sideBets = side;
     p.betPlaced = true;
     p.inRound = true;
     p.hands = [{ cards: [], bet, status: 'waiting', doubled: false }];
@@ -358,6 +416,7 @@ class Game {
       p.insuranceDecided = false;
       p.insuranceResult = null;
     }
+    this.settleSideBets(inRound);
 
     // Carte visible du croupier = As : l'assurance se propose avant de
     // regarder la carte cachée (sinon la décision ne serait plus à l'aveugle).
@@ -386,6 +445,34 @@ class Game {
     this.buildTurnQueue();
     this.push();
     this.nextTurn();
+  }
+
+  /**
+   * Les paris annexes ne dépendent que des cartes déjà sur la table : ils se
+   * règlent tout de suite, comme au casino, avant même l'assurance.
+   */
+  settleSideBets(inRound) {
+    const upcard = this.dealer.cards[0];
+    for (const p of inRound) {
+      const [a, b] = p.hands[0].cards;
+      const outcomes = {
+        pairs: evalPerfectPairs([a, b]),
+        trio: evalTwentyOnePlusThree([a, b, upcard]),
+      };
+      p.sideResults = null;
+      for (const key of SIDE_BETS) {
+        const stake = p.sideBets[key];
+        if (!stake) continue;
+        const o = outcomes[key];
+        p.sideResults = p.sideResults || {};
+        if (o) {
+          p.balance += stake * (o.mult + 1);
+          p.sideResults[key] = { label: o.label, mult: o.mult, win: stake * o.mult };
+        } else {
+          p.sideResults[key] = { label: null, mult: 0, win: -stake };
+        }
+      }
+    }
   }
 
   // ---------------------------------------------------------------- assurance
@@ -663,6 +750,9 @@ class Game {
       // L'assurance a déjà été réglée pendant la phase dédiée (balance mise
       // à jour) — on l'ajoute simplement au net affiché de la manche.
       let net = 0;
+      if (p.sideResults) {
+        for (const r of Object.values(p.sideResults)) net += r.win;
+      }
       if (p.insuranceResult === 'win') net += p.insuranceBet * 2;
       else if (p.insuranceResult === 'lose') net -= p.insuranceBet;
       for (const h of p.hands) {
@@ -942,6 +1032,8 @@ class Game {
           insuranceBet: p.insuranceBet,
           insuranceDecided: p.insuranceDecided,
           insuranceResult: p.insuranceResult,
+          sideBets: p.sideBets,
+          sideResults: p.sideResults,
           lastNet: p.lastNet,
           isTurn: !!(this.current && this.current.playerId === p.id),
           turnHandIndex: this.current && this.current.playerId === p.id ? this.current.handIndex : null,
@@ -973,4 +1065,7 @@ class Game {
   }
 }
 
-module.exports = { Game, handValue, isNaturalBlackjack, buildShoe, DEFAULTS };
+module.exports = {
+  Game, handValue, isNaturalBlackjack, buildShoe, DEFAULTS,
+  evalPerfectPairs, evalTwentyOnePlusThree,
+};

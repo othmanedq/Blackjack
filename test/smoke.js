@@ -3,7 +3,9 @@
 /* Test de fumée : valeurs de mains + déroulé complet d'une manche à 2 joueurs. */
 
 const assert = require('assert');
-const { Game, handValue, isNaturalBlackjack, buildShoe } = require('../game/blackjack');
+const {
+  Game, handValue, isNaturalBlackjack, buildShoe, evalPerfectPairs, evalTwentyOnePlusThree,
+} = require('../game/blackjack');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const c = (rank, suit = '♠') => ({ rank, suit, id: `t-${rank}${suit}-${Math.random()}` });
@@ -20,6 +22,57 @@ assert.strictEqual(isNaturalBlackjack([c('A'), c('J')]), true);
 assert.strictEqual(isNaturalBlackjack([c('7'), c('7'), c('7')]), false);
 assert.strictEqual(buildShoe(6).length, 312);
 console.log('✓ valeurs de mains, blackjack naturel, sabot 6 jeux');
+
+// ---------------------------------------------------------------- paris annexes
+
+const mult = (r) => (r ? r.mult : 0);
+assert.strictEqual(mult(evalPerfectPairs([c('8', '♥'), c('8', '♥')])), 25);
+assert.strictEqual(mult(evalPerfectPairs([c('8', '♥'), c('8', '♦')])), 12);
+assert.strictEqual(mult(evalPerfectPairs([c('8', '♠'), c('8', '♣')])), 12);
+assert.strictEqual(mult(evalPerfectPairs([c('8', '♠'), c('8', '♥')])), 6);
+assert.strictEqual(evalPerfectPairs([c('K', '♠'), c('Q', '♠')]), null); // figures ≠ paire
+assert.strictEqual(mult(evalTwentyOnePlusThree([c('7', '♦'), c('7', '♦'), c('7', '♦')])), 100);
+assert.strictEqual(mult(evalTwentyOnePlusThree([c('5', '♣'), c('6', '♣'), c('7', '♣')])), 40);
+assert.strictEqual(mult(evalTwentyOnePlusThree([c('7', '♦'), c('7', '♠'), c('7', '♦')])), 30);
+assert.strictEqual(mult(evalTwentyOnePlusThree([c('A'), c('2', '♥'), c('3')])), 10);
+assert.strictEqual(mult(evalTwentyOnePlusThree([c('Q'), c('K', '♥'), c('A')])), 10);
+assert.strictEqual(evalTwentyOnePlusThree([c('K'), c('A', '♥'), c('2')]), null); // pas de suite « tournante »
+assert.strictEqual(mult(evalTwentyOnePlusThree([c('2', '♥'), c('9', '♥'), c('K', '♥')])), 5);
+assert.strictEqual(evalTwentyOnePlusThree([c('2', '♥'), c('9', '♠'), c('K', '♥')]), null);
+console.log('✓ paris annexes : Perfect Pairs et 21+3');
+
+(() => {
+  const game = new Game(() => {}, { betTimeMs: 100000, turnTimeMs: 100000 });
+  const p = game.addPlayer({ token: 'a', name: 'Alice' });
+  game.addPlayer({ token: 'b', name: 'Bob' }); // garde la mise ouverte
+  game.setGameMode('table');
+  game.startBetting();
+  assert.throws(() => game.placeBet('a', 50, { pairs: 60 }), /dépasser la mise principale/i);
+  assert.throws(() => game.placeBet('a', 50, { trio: -5 }), /invalide/i);
+  assert.throws(() => game.placeBet('a', 990, { pairs: 20 }), /Solde insuffisant/i);
+  game.placeBet('a', 100, { pairs: 10, trio: 20 });
+  assert.strictEqual(p.balance, 870);
+
+  // Distribution truquée : paire parfaite de 8♥, 2♠ visible chez le croupier → 21+3 perdu.
+  game.shoe.push(c('5'), c('9', '♥'), c('8', '♥'), c('2'), c('8', '♥'));
+  game.deal();
+  assert.deepStrictEqual(p.sideResults.pairs, { label: 'Paire parfaite', mult: 25, win: 250 });
+  assert.strictEqual(p.sideResults.trio.win, -20);
+  assert.strictEqual(p.balance, 870 + 10 * 26, 'la paire parfaite rend la mise + 25×');
+  const pub = game.publicState().players.find((x) => x.id === 'a');
+  assert.deepStrictEqual(pub.sideBets, { pairs: 10, trio: 20 });
+
+  // Le net de la manche inclut les paris annexes.
+  game.clearTimers();
+  game.phase = 'playing';
+  p.hands[0].status = 'stand';
+  game.dealer.cards = [c('10'), c('8')]; // 16 contre 18 : main perdue
+  game.settle();
+  game.clearTimers();
+  assert.strictEqual(p.lastNet, 250 - 20 - 100);
+  assert.strictEqual(p.balance, 1000 + p.lastNet, 'les jetons doivent être conservés');
+  console.log('✓ paris annexes réglés à la distribution et comptés dans le net');
+})();
 
 // ------------------------------------------------- cave de départ & re-cave
 

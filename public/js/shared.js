@@ -150,3 +150,119 @@ const sfx = (() => {
 })();
 
 const fmt = new Intl.NumberFormat('fr-FR');
+
+/* ------------------- Visages : réactions et croupier ------------------- */
+
+// Même liste que REACTIONS dans server.js (ordre d'affichage du sélecteur).
+const FACES = ['laughing', 'cool', 'smirk', 'shocked', 'crossed', 'sad', 'angry', 'neutral'];
+const faceSrc = (face) => `/asset/face-${face}.webp`;
+// Préchargement : un changement d'humeur ne doit pas clignoter.
+FACES.forEach((f) => { new Image().src = faceSrc(f); });
+
+/**
+ * Bulle de réaction posée sur `anchor` (qui doit être en position relative).
+ * Une nouvelle réaction remplace la précédente au lieu de s'empiler.
+ */
+function showReactionBubble(anchor, face) {
+  if (!anchor || !FACES.includes(face)) return;
+  const old = anchor.querySelector(':scope > .reaction-bubble');
+  if (old) old.remove();
+  const b = document.createElement('img');
+  b.className = 'reaction-bubble';
+  b.src = faceSrc(face);
+  b.alt = '';
+  anchor.appendChild(b);
+  setTimeout(() => b.remove(), 2800);
+}
+
+/** Humeur de fond du croupier, déduite de l'état de la manche. */
+function dealerBaseMood(s) {
+  switch (s.phase) {
+    case 'betting':
+    case 'insurance':
+      return 'smirk';
+    case 'playing':
+      return 'crossed';
+    case 'dealer':
+      return s.dealer.total >= 17 && !s.dealer.bust ? 'cool' : 'neutral';
+    case 'results': {
+      if (s.dealer.blackjack) return 'cool';
+      if (s.dealer.bust) return 'angry';
+      // Bilan de la maison : ce que les joueurs ont gagné, elle l'a perdu.
+      const playersNet = s.players.reduce((n, p) => n + (p.inRound ? p.lastNet : 0), 0);
+      if (playersNet > 0) return 'sad';
+      if (playersNet < 0) return 'laughing';
+      return 'neutral';
+    }
+    default:
+      return 'neutral';
+  }
+}
+
+/**
+ * Visage du croupier : humeur de fond + réactions brèves aux coups marquants
+ * (un joueur saute → il rit, un blackjack ou un pari annexe gagnant → il est choqué).
+ * @param {HTMLImageElement[]} imgs — toutes les images à tenir à jour
+ */
+function createDealerFace(imgs) {
+  let flash = null;
+  let flashTimer = null;
+  let current = null;
+  let last = null;
+
+  function show(face) {
+    if (face === current) return;
+    current = face;
+    for (const img of imgs) {
+      if (!img) continue;
+      img.src = faceSrc(face);
+      img.classList.remove('face-pop');
+      void img.offsetWidth;
+      img.classList.add('face-pop');
+    }
+  }
+
+  function detectFlash(s, prev) {
+    if (!prev || prev.roundNumber !== s.roundNumber) return null;
+    const before = new Map(prev.players.map((p) => [p.id, p]));
+    let face = null;
+    for (const p of s.players) {
+      const b = before.get(p.id);
+      if (!b) continue;
+      p.hands.forEach((h, i) => {
+        const was = b.hands[i] && b.hands[i].status;
+        if (h.status === 'bust' && was !== 'bust') face = face || 'laughing';
+        if (h.status === 'blackjack' && was !== 'blackjack') face = 'shocked';
+      });
+      const sideWin = p.sideResults && Object.values(p.sideResults).some((r) => r.win > 0);
+      if (sideWin && !b.sideResults) face = 'shocked';
+    }
+    return face;
+  }
+
+  return {
+    update(s) {
+      const f = detectFlash(s, last);
+      last = s;
+      if (f) {
+        flash = f;
+        clearTimeout(flashTimer);
+        flashTimer = setTimeout(() => { flash = null; if (last) show(dealerBaseMood(last)); }, 2200);
+      }
+      show(flash || dealerBaseMood(s));
+    },
+  };
+}
+
+/** Badges des paris annexes réglés d'un joueur (HTML sûr : libellés fixes). */
+const SIDE_NAMES = { pairs: 'Paires', trio: '21+3' };
+function sideTagsHtml(p) {
+  if (!p.sideResults) {
+    // Pas encore distribué : on montre simplement les paris posés.
+    return Object.entries(p.sideBets || {}).filter(([, v]) => v > 0)
+      .map(([key, v]) => `<span class="side-tag">${SIDE_NAMES[key]} ${fmt.format(v)}</span>`).join('');
+  }
+  return Object.entries(p.sideResults).map(([key, r]) => (r.win > 0
+    ? `<span class="side-tag won">${iconHtml('sparkle')} ${SIDE_NAMES[key]} : ${r.label} ×${r.mult} (+${fmt.format(r.win)})</span>`
+    : `<span class="side-tag lost">${SIDE_NAMES[key]} perdu (−${fmt.format(-r.win)})</span>`)).join('');
+}
