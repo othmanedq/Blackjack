@@ -117,7 +117,7 @@ function phaseMessage(s) {
   }
   if (s.rebuyRequest) {
     const r = s.rebuyRequest;
-    return ['chipPlus', `${r.playerName} demande une re-cave — ${r.approved}/${r.total} ont accepté`];
+    return ['chipPlus', `${r.playerName} demande une re-cave — ${r.approved}/${r.needed} acceptations nécessaires`];
   }
   if (s.phase === 'results') return ['flag', 'Manche terminée — les mises rouvrent dans un instant…'];
   return PHASE_MSGS[s.phase] || null;

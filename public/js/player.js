@@ -459,6 +459,20 @@ els.stakeOptions.addEventListener('click', (e) => {
 
 // Le joueur à sec peut repousser la modale ; elle revient s'il retombe à sec plus tard.
 let rebuyDismissed = false;
+let rebuyRetryTimer = null;
+
+// Verdict du vote, reçu tout de suite par le demandeur.
+socket.on('player:rebuyResult', ({ outcome } = {}) => {
+  rebuyDismissed = false;
+  if (outcome === 'granted') {
+    showToast('Re-cave acceptée : te revoilà dans la partie !', 'win');
+    sfx.win();
+    burstConfetti(40);
+  } else {
+    sfx.lose();
+  }
+  render();
+});
 
 function onRebuyClick(e) {
   const btn = e.target.closest('button[data-rebuy]');
@@ -545,22 +559,30 @@ function renderRebuy(me) {
   const isBroke = me.balance < state.minBet;
   if (!isBroke) rebuyDismissed = false;
   const requester = r && state.players.find((p) => p.id === r.playerId);
+  // Barre de progression vers la majorité : il faut `needed` acceptations.
   const progress = r
-    ? `<div class="rebuy-progress"><i style="width:${r.total ? (r.approved / r.total) * 100 : 0}%"></i></div>
-       <p class="rebuy-count">${r.approved}/${r.total} accepté${r.approved > 1 ? 's' : ''} · unanimité requise</p>`
+    ? `<div class="rebuy-progress"><i style="width:${Math.min(100, (r.approved / r.needed) * 100)}%"></i></div>
+       <p class="rebuy-count">${r.approved}/${r.needed} acceptation${r.needed > 1 ? 's' : ''} nécessaire${r.needed > 1 ? 's' : ''}
+         · ${r.refused} refus · majorité des ${r.total} joueurs</p>`
     : '';
+  // Re-cave refusée récemment : nouvelle demande possible après un délai.
+  const retryMs = Math.max(0, (me.rebuyRetryAt || 0) - clock.now());
+  if (retryMs > 0) {
+    clearTimeout(rebuyRetryTimer);
+    rebuyRetryTimer = setTimeout(render, retryMs + 200);
+  }
 
   let modal = '';
   let panel = '';
   if (r && r.playerId === me.id && rebuyDismissed) {
     panel = `<p class="rebuy-text">${iconHtml('chipPlus')} Ta demande de re-cave :
-      ${r.approved}/${r.total} ont accepté…</p>
+      ${r.approved}/${r.needed} acceptations…</p>
       <button type="button" class="ghost-btn rebuy-see" data-rebuy="open">Voir</button>`;
   } else if (r && r.playerId === me.id) {
     modal = `<p class="modal-text">Demande envoyée aux autres joueurs pour
       <strong>${fmt.format(r.amount)}</strong> jetons.</p>
       ${progress}
-      <p class="rebuy-warn">Un seul refus et tu quittes la table.</p>`;
+      <p class="rebuy-note">La majorité décide. En cas de refus, tu restes à la table.</p>`;
   } else if (r && r.awaiting.includes(me.id)) {
     const who = requester
       ? `<div class="resume-identity">
@@ -572,18 +594,27 @@ function renderRebuy(me) {
       <p class="modal-text"><strong>${esc(r.playerName)}</strong> n'a plus de jetons et demande
         une re-cave de <strong>${fmt.format(r.amount)}</strong>.</p>
       ${progress}
-      <p class="rebuy-warn">Un seul refus l'exclut de la table.</p>
+      <p class="rebuy-note">La majorité décide. Un refus ne l'exclut pas : il reste à la table.</p>
       <div class="rebuy-actions">
         <button type="button" class="rebuy-yes" data-rebuy="yes">${iconHtml('check')} Accepter</button>
         <button type="button" class="rebuy-no" data-rebuy="no">${iconHtml('cross')} Refuser</button>
       </div>`;
   } else if (r) {
     panel = `<p class="rebuy-text">${iconHtml('chipPlus')} Re-cave de <strong>${esc(r.playerName)}</strong> :
-      ${r.approved}/${r.total} ont accepté…</p>`;
+      ${r.approved}/${r.needed} acceptations…</p>`;
+  } else if (isBroke && !me.inRound && retryMs > 0 && !rebuyDismissed) {
+    modal = `<p class="modal-text">La majorité a refusé ta re-cave.<br>Tu restes à la table.</p>
+      <p class="rebuy-note">Tu pourras redemander dans ${Math.ceil(retryMs / 1000)} s.</p>
+      <div class="modal-actions">
+        <button type="button" class="cta" data-rebuy="later">D'accord</button>
+      </div>`;
+  } else if (isBroke && !me.inRound && retryMs > 0) {
+    panel = `<p class="rebuy-text">${iconHtml('clock')} Re-cave refusée : nouvelle demande possible
+      dans ${Math.ceil(retryMs / 1000)} s.</p>`;
   } else if (isBroke && !me.inRound && !rebuyDismissed) {
     modal = `<p class="modal-text">Tu n'as plus assez de jetons pour miser.<br>
         Demande une re-cave de <strong>${fmt.format(state.startingBalance)}</strong> aux autres joueurs.</p>
-      <p class="rebuy-warn">Il faut que tout le monde accepte : un seul refus et tu quittes la table.</p>
+      <p class="rebuy-note">La majorité des autres joueurs doit accepter. En cas de refus, tu restes à la table.</p>
       <div class="modal-actions">
         <button type="button" class="cta rebuy-request" data-rebuy="request">
           ${iconHtml('chipPlus')} Demander une re-cave

@@ -111,10 +111,11 @@ Si un joueur se retrouve à sec (solde sous la mise minimum) :
 
 - Il peut **demander une re-cave** depuis son téléphone.
 - Tous les **autres** joueurs votent **Accepter / Refuser**.
-- **Unanimité requise** : si tout le monde accepte, il est recrédité de la cave de départ.
-- **Un seul refus** : il est **exclu de la table**. Pour rejouer, il doit revenir comme un **nouveau joueur** (nouveau pseudo/avatar possible, cave de départ standard).
+- **Majorité requise** : si plus de la moitié des votants acceptent, il est recrédité de la cave de départ. Une égalité vaut refus.
+- **Refus** : il **reste à la table**, à sec, et peut redemander **une minute plus tard**. Personne n'est exclu par un vote.
+- Le vote se clôt dès que l'issue est certaine (majorité atteinte, ou devenue impossible).
 
-Un joueur qui se déconnecte pendant un vote ne le bloque pas — l'unanimité ne porte que sur les votants restants.
+Un joueur qui se déconnecte pendant un vote ne le bloque pas : la majorité se recalcule sur les votants restants.
 
 ## Structure du projet
 

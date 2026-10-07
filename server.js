@@ -274,7 +274,7 @@ io.on('connection', (socket) => {
     });
   });
 
-  // Re-cave : demande d'un joueur à sec, votée à l'unanimité par les autres.
+  // Re-cave : demande d'un joueur à sec, votée à la majorité par les autres.
   socket.on('player:requestRebuy', (ack) => {
     respond(ack, () => {
       const token = socketPlayer.get(socket.id);
@@ -288,9 +288,11 @@ io.on('connection', (socket) => {
       const token = socketPlayer.get(socket.id);
       if (!token) throw new Error('Rejoins la partie d’abord.');
       const result = game.voteRebuy(token, !!accept);
-      if (result.kicked) {
-        notifyKicked(result.kicked,
-          'La re-cave a été refusée : tu quittes la table. Tu peux revenir comme nouveau joueur.');
+      // Le demandeur apprend tout de suite le verdict (il reste à la table dans les deux cas).
+      if (result.outcome) {
+        for (const [sid, t] of socketPlayer) {
+          if (t === result.requester) io.to(sid).emit('player:rebuyResult', { outcome: result.outcome });
+        }
       }
       if (typeof ack === 'function') ack({ ok: true });
     } catch (err) {

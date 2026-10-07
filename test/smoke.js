@@ -118,38 +118,56 @@ console.log('✓ paris annexes : Perfect Pairs et 21+3');
 
   assert.throws(() => game.voteRebuy('a', true), /propre demande/i);
 
-  // Bob accepte, la demande reste en attente de Carl.
+  // 2 votants : il faut 2 acceptations (plus de la moitié). Bob accepte, on attend Carl.
   game.voteRebuy('b', true);
   assert.ok(game.rebuyRequest, 'toujours en attente de Carl');
-  assert.strictEqual(alice.balance, 0, 'pas de re-cave avant unanimité');
+  assert.strictEqual(alice.balance, 0, 'pas de re-cave avant la majorité');
 
-  // Carl refuse : Alice est exclue de la table.
+  // Carl refuse : 1 contre 1, pas de majorité → refusée, mais Alice reste à la table.
   const result = game.voteRebuy('c', false);
-  assert.strictEqual(result.kicked, 'a');
-  assert.strictEqual(game.players.has('a'), false, 'Alice doit avoir quitté la table');
+  assert.strictEqual(result.outcome, 'denied');
+  assert.strictEqual(game.players.has('a'), true, 'un refus n’exclut plus personne');
+  assert.strictEqual(alice.balance, 0);
   assert.strictEqual(game.rebuyRequest, null);
-  console.log('✓ re-cave refusée → le demandeur est exclu de la table');
+  assert.throws(() => game.requestRebuy('a'), /réessaie dans/i, 'délai avant une nouvelle demande');
+  alice.rebuyRetryAt = Date.now() - 1; // le délai est écoulé
+  game.requestRebuy('a');
+  game.voteRebuy('b', true);
+  game.voteRebuy('c', true);
+  assert.strictEqual(alice.balance, 500, 'seconde demande acceptée');
+  console.log('✓ re-cave refusée → le joueur reste à la table et peut redemander après un délai');
 
-  // Nouveau scénario : re-cave acceptée à l'unanimité.
+  // Majorité : avec 3 votants, 2 acceptations suffisent, même avec un refus.
   const dan = game.addPlayer({ token: 'd', name: 'Dan' });
   dan.balance = 0;
   game.requestRebuy('d');
+  assert.strictEqual(game.publicState().rebuyRequest.needed, 2);
+  game.voteRebuy('a', false);
   game.voteRebuy('b', true);
-  game.voteRebuy('c', true);
+  assert.strictEqual(game.voteRebuy('c', true).outcome, 'granted');
   assert.strictEqual(dan.balance, 500, 'la re-cave doit créditer la cave de départ');
   assert.strictEqual(game.rebuyRequest, null);
-  console.log('✓ re-cave acceptée à l’unanimité → le joueur est recrédité');
+  console.log('✓ re-cave acceptée à la majorité malgré un refus');
+
+  // Refus anticipé : dès que la majorité devient impossible, le vote se clôt.
+  const fay = game.addPlayer({ token: 'f', name: 'Fay' });
+  fay.balance = 0;
+  game.requestRebuy('f'); // 4 votants → 3 acceptations nécessaires
+  game.voteRebuy('a', false);
+  assert.strictEqual(game.voteRebuy('b', false).outcome, 'denied', '2 refus sur 4 : majorité impossible');
+  console.log('✓ vote clos dès que la majorité devient impossible');
 
   // Un joueur qui se déconnecte pendant un vote ne doit pas le bloquer :
-  // l'unanimité ne porte plus que sur les votants restants.
+  // la majorité se recalcule sur les votants restants.
   const eve = game.addPlayer({ token: 'e', name: 'Eve' });
   eve.balance = 0;
   game.requestRebuy('e');
-  assert.deepStrictEqual([...game.rebuyRequest.pending].sort(), ['b', 'c', 'd']);
+  assert.deepStrictEqual([...game.rebuyRequest.pending].sort(), ['a', 'b', 'c', 'd', 'f']);
   game.disconnectPlayer('c'); // Carl part avant de voter
+  game.disconnectPlayer('f');
   game.voteRebuy('b', true);
   game.voteRebuy('d', true);
-  assert.strictEqual(eve.balance, 500, 're-cave conclue sans le votant parti');
+  assert.strictEqual(eve.balance, 500, 're-cave conclue sans les votants partis');
   console.log('✓ un joueur parti ne bloque pas un vote de re-cave en cours');
 })();
 

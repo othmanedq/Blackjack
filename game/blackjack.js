@@ -33,6 +33,7 @@ const DEFAULTS = {
   maxPlayers: 7,
   maxParked: 64, // joueurs au vestiaire conservés (garde-fou mémoire)
   maxSplitHands: 4, // jusqu'à 3 splits (règle courante des casinos)
+  rebuyRetryMs: 60000, // délai avant de redemander une re-cave refusée
 };
 
 // Pseudo : 12 caractères au plus, pour tenir sur une plaque de la table.
@@ -215,6 +216,7 @@ class Game {
       sideBets: { pairs: 0, trio: 0 },
       sideResults: null, // { pairs, trio } : { label, mult, win } | null, réglés à la distribution
       lastNet: 0,      // gain/perte de la dernière manche (affichage table)
+      rebuyRetryAt: 0, // re-cave refusée : nouvelle demande possible à partir de cet instant
       joinedAt: Date.now(),
     };
     this.players.set(token, player);
@@ -327,7 +329,7 @@ class Game {
       p.sideBets = { pairs: 0, trio: 0 };
       p.sideResults = null;
       // Pas de re-cave automatique : un joueur à sec doit la demander
-      // aux autres (unanimité) ou quitter la table.
+      // aux autres (vote à la majorité) ou quitter la table.
     }
     if (this.players.size === 0) {
       this.phase = 'lobby';
@@ -884,12 +886,16 @@ class Game {
     this.push();
   }
 
-  /** Un joueur à sec demande une re-cave : tous les autres doivent accepter. */
+  /** Un joueur à sec demande une re-cave : la majorité des autres doit accepter. */
   requestRebuy(token) {
     const p = this.players.get(token);
     if (!p) throw new Error('Joueur inconnu.');
     if (p.balance >= this.opts.minBet) throw new Error('Tu as encore des jetons.');
     if (this.rebuyRequest) throw new Error('Une demande de re-cave est déjà en cours.');
+    if (p.rebuyRetryAt && Date.now() < p.rebuyRetryAt) {
+      const s = Math.ceil((p.rebuyRetryAt - Date.now()) / 1000);
+      throw new Error(`Ta re-cave vient d’être refusée : réessaie dans ${s} s.`);
+    }
     const voters = [...this.players.values()]
       .filter((x) => x.connected && x.id !== token)
       .map((x) => x.id);
@@ -899,38 +905,71 @@ class Game {
       this.push();
       return;
     }
-    this.rebuyRequest = { playerId: token, pending: new Set(voters), approved: new Set() };
+    this.rebuyRequest = {
+      playerId: token, pending: new Set(voters), approved: new Set(), refused: new Set(),
+    };
     this.push();
   }
 
+  /** Acceptations nécessaires : plus de la moitié des votants (une égalité = refus). */
+  rebuyNeeded(r) {
+    const total = r.pending.size + r.approved.size + r.refused.size;
+    return Math.floor(total / 2) + 1;
+  }
+
   /**
-   * Vote sur la re-cave en cours. Unanimité requise : un seul refus et le
-   * demandeur quitte la table (il pourra revenir comme nouveau joueur).
-   * @returns {{ kicked: string|null }}
+   * Conclut le vote dès que l'issue est certaine : majorité atteinte, ou
+   * majorité devenue impossible.
+   * @returns {'granted' | 'denied' | null}
+   */
+  settleRebuyVote() {
+    const r = this.rebuyRequest;
+    if (!r) return null;
+    const needed = this.rebuyNeeded(r);
+    if (r.approved.size >= needed) {
+      this.grantRebuy();
+      return 'granted';
+    }
+    if (r.approved.size + r.pending.size < needed) {
+      this.denyRebuy();
+      return 'denied';
+    }
+    return null;
+  }
+
+  /**
+   * Vote sur la re-cave en cours, à la majorité. Un refus n'exclut personne :
+   * le demandeur reste à la table, à sec, et pourra redemander plus tard.
+   * @returns {{ outcome: 'granted' | 'denied' | null, requester: string }}
    */
   voteRebuy(token, accept) {
     const r = this.rebuyRequest;
     if (!r) throw new Error('Aucune demande de re-cave en cours.');
     if (r.playerId === token) throw new Error('Tu ne peux pas voter pour ta propre demande.');
     if (!r.pending.has(token)) throw new Error('Ton vote a déjà été pris en compte.');
-    if (!accept) {
-      const requester = r.playerId;
-      this.rebuyRequest = null;
-      this.kickPlayer(requester);
-      return { kicked: requester };
-    }
     r.pending.delete(token);
-    r.approved.add(token);
-    if (r.pending.size === 0) this.grantRebuy();
+    (accept ? r.approved : r.refused).add(token);
+    const outcome = this.settleRebuyVote();
     this.push();
-    return { kicked: null };
+    return { outcome, requester: r.playerId };
   }
 
   grantRebuy() {
     const r = this.rebuyRequest;
     if (!r) return;
     const p = this.players.get(r.playerId);
-    if (p) p.balance = this.opts.startingBalance;
+    if (p) {
+      p.balance = this.opts.startingBalance;
+      p.rebuyRetryAt = 0;
+    }
+    this.rebuyRequest = null;
+  }
+
+  denyRebuy() {
+    const r = this.rebuyRequest;
+    if (!r) return;
+    const p = this.players.get(r.playerId);
+    if (p) p.rebuyRetryAt = Date.now() + this.opts.rebuyRetryMs;
     this.rebuyRequest = null;
   }
 
@@ -952,9 +991,11 @@ class Game {
       this.rebuyRequest = null;
       return;
     }
+    // La majorité se recalcule sur les votants restants.
     r.pending.delete(token);
     r.approved.delete(token);
-    if (r.pending.size === 0) this.grantRebuy();
+    r.refused.delete(token);
+    this.settleRebuyVote();
   }
 
   // ------------------------------------------------- dons & exclusion
@@ -1044,7 +1085,10 @@ class Game {
             playerName: (this.players.get(this.rebuyRequest.playerId) || {}).name || '?',
             amount: this.opts.startingBalance,
             approved: this.rebuyRequest.approved.size,
-            total: this.rebuyRequest.approved.size + this.rebuyRequest.pending.size,
+            refused: this.rebuyRequest.refused.size,
+            needed: this.rebuyNeeded(this.rebuyRequest),
+            total: this.rebuyRequest.approved.size + this.rebuyRequest.refused.size +
+              this.rebuyRequest.pending.size,
             awaiting: [...this.rebuyRequest.pending],
           }
         : null,
@@ -1078,6 +1122,7 @@ class Game {
           sideBets: p.sideBets,
           sideResults: p.sideResults,
           lastNet: p.lastNet,
+          rebuyRetryAt: p.rebuyRetryAt,
           isTurn: !!(this.current && this.current.playerId === p.id),
           turnHandIndex: this.current && this.current.playerId === p.id ? this.current.handIndex : null,
           hands: p.hands.map((h) => {

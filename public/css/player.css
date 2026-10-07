@@ -825,3 +825,9 @@ html, body {
   color: rgba(245, 233, 200, 0.6);
 }
 .leave-btn.armed { border-color: rgba(255, 92, 92, 0.6); color: #ffb3b3; background: rgba(255, 92, 92, 0.1); }
+
+.rebuy-note {
+  font-size: 0.8rem;
+  color: rgba(245, 233, 200, 0.7);
+  margin-bottom: 14px;
+}
