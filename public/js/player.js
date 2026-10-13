@@ -43,6 +43,7 @@ const els = {
   chatForm: document.getElementById('chat-form'),
   chatInput: document.getElementById('chat-input'),
   chatClose: document.getElementById('chat-close'),
+  chatPeek: document.getElementById('chat-peek'),
   reactTray: document.getElementById('react-tray'),
   tDealerFace: document.getElementById('t-dealer-face'),
   feltArea: document.getElementById('felt-area'),
@@ -421,6 +422,7 @@ function openChat(open) {
   els.chatBtn.setAttribute('aria-expanded', String(open));
   if (open) {
     setChatUnread(0);
+    els.chatPeek.innerHTML = '';
     closeReactTray();
     els.chatList.scrollTop = els.chatList.scrollHeight;
     // Pas de focus automatique sur téléphone : le clavier masquerait les messages.
@@ -458,11 +460,34 @@ socket.on('chat:history', (messages = []) => {
   messages.forEach(appendChatMessage);
 });
 
+/* Sur ordinateur ou tablette, un nouveau message s'affiche en petit quelques
+   secondes ; un clic dessus ouvre le chat. Sur téléphone, la pastille suffit
+   (un aperçu masquerait les boutons de jeu). */
+const PEEK_MAX = 3;
+const PEEK_MS = 6000;
+
+function showChatPeek(m) {
+  const card = document.createElement('button');
+  card.type = 'button';
+  card.className = 'peek';
+  card.innerHTML = `
+    <span class="chat-avatar" style="--p-color:${esc(m.color)}">${avatarHtml(m.avatar)}</span>
+    <span class="peek-body"><span class="chat-name"></span><span class="peek-text"></span></span>`;
+  card.querySelector('.chat-name').textContent = m.name;
+  card.querySelector('.peek-text').textContent = m.text;
+  card.addEventListener('click', () => openChat(true));
+  els.chatPeek.appendChild(card);
+  while (els.chatPeek.children.length > PEEK_MAX) els.chatPeek.firstElementChild.remove();
+  setTimeout(() => card.classList.add('fade'), PEEK_MS);
+  setTimeout(() => card.remove(), PEEK_MS + 500);
+}
+
 socket.on('chat:message', (m) => {
   appendChatMessage(m);
   if (m.playerId !== token && !chatIsOpen()) {
     setChatUnread(chatUnread + 1);
     sfx.click();
+    if (joined && wideMql.matches) showChatPeek(m);
   }
 });
 
