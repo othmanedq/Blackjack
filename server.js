@@ -57,9 +57,11 @@ const REACTIONS = ['laughing', 'cool', 'smirk', 'shocked', 'crossed', 'sad', 'an
 const REACTION_COOLDOWN_MS = 1500;
 
 // Accueil (/) : public/index.html, servi par express.static — on y choisit sa table.
-// Blackjack : vue joueur et écran de la table (/host, adresse historique).
+// Blackjack : vue joueur et écran de la table.
 app.get('/blackjack', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'player.html')));
-app.get('/host', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'host.html')));
+app.get('/blackjack/host', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'host.html')));
+// Ancienne adresse de l'écran du blackjack : on redirige (favoris, onglets déjà ouverts).
+app.get('/host', (_req, res) => res.redirect('/blackjack/host'));
 // Poker : vue joueur et écran de la table.
 app.get('/poker', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'poker.html')));
 app.get('/poker/host', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'poker-host.html')));
@@ -514,7 +516,7 @@ server.listen(PORT, () => {
   console.log('');
   console.log('  ♠ ♥  BLACKJACK ROYALE  ♦ ♣');
   console.log('  ──────────────────────────────────────────');
-  console.log(`  Table (ordinateur) : ${publicUrl ? `${publicUrl}/host` : `http://localhost:${PORT}/host`}`);
+  console.log(`  Table de blackjack : ${publicUrl ? `${publicUrl}/blackjack/host` : `http://localhost:${PORT}/blackjack/host`}`);
   console.log(`  Joueurs (mobiles)  : ${joinUrl}   (choix blackjack / poker)`);
   console.log(`  Table de poker     : ${publicUrl ? `${publicUrl}/poker/host` : `http://localhost:${PORT}/poker/host`}`);
   console.log('  ──────────────────────────────────────────');

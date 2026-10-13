@@ -5,7 +5,7 @@
  * boudin en cuir, croupier côté plat (rack de jetons, sabot), inscriptions
  * imprimées sur le tapis et 7 cercles de mise le long de l'arrondi.
  *
- * Partagée par l'écran table (/host) et la vue joueur sur ordinateur ou
+ * Partagée par l'écran table (/blackjack/host) et la vue joueur sur ordinateur ou
  * tablette. Elle ne fait que du rendu : sons et effets restent à l'appelant.
  *
  * Repère : le feutre mesure 1000 × 500 unités, centre de l'arrondi en (500, 0).

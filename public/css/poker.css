@@ -192,3 +192,13 @@
   background: rgba(212, 175, 55, 0.18);
   color: var(--gold-bright);
 }
+
+/* Évolution des blindes (réglages) et niveau en cours */
+.blind-modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0 14px; }
+.blind-modes .mode-btn { padding: 10px 6px; }
+.mini-blinds {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: rgba(245, 233, 200, 0.75);
+  font-variant-numeric: tabular-nums;
+}

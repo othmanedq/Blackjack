@@ -22,6 +22,27 @@ const POKER_PHASE_LABELS = {
   preflop: 'Préflop', flop: 'Flop', turn: 'Turn', river: 'River', showdown: 'Abattage',
 };
 
+/**
+ * Blindes actuelles et prochain niveau : « 5/10 · 10/20 dans 4:12 »,
+ * ou « … à la prochaine élimination ». Recalculé chaque seconde (chrono).
+ */
+function pokerBlindInfo(s) {
+  const now = `${s.smallBlind}/${s.bigBlind}`;
+  if (!s.nextBlinds) return `Blindes ${now} · niveau max`;
+  const next = `${s.nextBlinds[0]}/${s.nextBlinds[1]}`;
+  if (s.blindMode === 'elimination') {
+    return s.pendingLevelUps > 0
+      ? `Blindes ${now} · ${next} à la prochaine main`
+      : `Blindes ${now} · ${next} à la prochaine élimination`;
+  }
+  if (!s.nextLevelAt) return `Blindes ${now} · ${next} ensuite`;
+  const rem = Math.max(0, Math.ceil(clock.remaining(s.nextLevelAt) / 1000));
+  if (rem === 0) return `Blindes ${now} · ${next} à la prochaine main`;
+  const mm = Math.floor(rem / 60);
+  const ss = String(rem % 60).padStart(2, '0');
+  return `Blindes ${now} · ${next} dans ${mm}:${ss}`;
+}
+
 /** Point sur l'ovale du feutre, en % (r = 1 : le bord du tapis). */
 function ovalPoint(angleDeg, r) {
   const a = (angleDeg * Math.PI) / 180;
@@ -209,7 +230,7 @@ function createPokerTableView(root, opts = {}) {
 
     els.pot.hidden = !s.pot;
     els.pot.innerHTML = `${iconHtml('chips')} Pot ${fmt.format(s.pot)}`;
-    els.phase.textContent = s.phase === 'lobby' ? '' : `${POKER_PHASE_LABELS[s.phase] || ''} · blindes ${s.smallBlind}/${s.bigBlind}`;
+    els.phase.textContent = s.phase === 'lobby' ? '' : `${POKER_PHASE_LABELS[s.phase] || ''} · ${pokerBlindInfo(s)}`;
 
     const msg = opts.phaseMessage ? opts.phaseMessage(s) : null;
     if (msg) setLabel(els.msg, msg[0], msg[1]);
@@ -229,6 +250,11 @@ function createPokerTableView(root, opts = {}) {
         const rem = clock.remaining(state.turnEndsAt);
         bar.firstElementChild.style.width = `${(rem / 30000) * 100}%`;
         bar.classList.toggle('urgent', rem < 8000);
+      }
+      // Compte à rebours du prochain niveau de blindes.
+      if (state.phase !== 'lobby') {
+        const txt = `${POKER_PHASE_LABELS[state.phase] || ''} · ${pokerBlindInfo(state)}`;
+        if (els.phase.textContent !== txt) els.phase.textContent = txt;
       }
       const showResults = state.phase === 'showdown' && state.resultsEndsAt;
       els.resultsTimer.hidden = !showResults;

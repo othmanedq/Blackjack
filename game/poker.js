@@ -24,8 +24,8 @@ const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
 const DEFAULTS = {
   maxPlayers: 8,
   startingStack: 1000,
-  smallBlind: 5,
-  bigBlind: 10,
+  startLevel: 3,        // niveau de blindes de départ (5/10)
+  blindMode: 'long',    // évolution des blindes : fast | long | elimination
   turnTimeMs: 30000,
   resultsTimeMs: 7000,
   runoutDelayMs: 1100,  // pause entre deux cartes quand tout le monde est à tapis
@@ -34,8 +34,20 @@ const DEFAULTS = {
   rebuyRetryMs: 60000,  // délai avant de redemander une recave refusée
 };
 
-// Blindes proposées au chef de table : [petite, grosse].
-const BLIND_LEVELS = [[1, 2], [5, 10], [10, 20], [25, 50], [50, 100], [100, 200]];
+// Échelle des blindes, façon tournoi : [petite, grosse].
+const BLIND_SCHEDULE = [
+  [1, 2], [2, 4], [3, 6], [5, 10], [10, 20], [15, 30], [25, 50], [50, 100], [75, 150],
+  [100, 200], [150, 300], [200, 400], [300, 600], [500, 1000], [750, 1500], [1000, 2000],
+  [1500, 3000], [2000, 4000], [3000, 6000], [5000, 10000],
+];
+// Niveaux de départ proposés au chef de table (indices dans l'échelle).
+const START_LEVELS = [0, 3, 4, 6, 7, 9];
+// Évolution des blindes : un niveau de plus tous les N minutes, ou à chaque élimination.
+const BLIND_MODES = {
+  fast: { label: 'Rapide', detail: 'toutes les 5 min', minutes: 5 },
+  long: { label: 'Longue', detail: 'toutes les 15 min', minutes: 15 },
+  elimination: { label: 'À chaque élimination', detail: 'un joueur à zéro', minutes: null },
+};
 
 let deckSeq = 0;
 
@@ -83,6 +95,13 @@ class PokerGame {
     this.moderatorId = null;
     this.configured = false; // tapis et blindes verrouillés après la 1re main
     this.rebuyRequest = null; // vote de recave en cours : { playerId, pending, approved, refused }
+    // Blindes progressives
+    this.blindLevel = this.opts.startLevel;
+    this.blindMode = this.opts.blindMode;
+    this.nextLevelAt = null;      // modes chronométrés : passage au niveau suivant
+    this.pausedAt = null;         // partie arrêtée faute de joueurs : le chrono s'arrête
+    this.pendingLevelUps = 0;     // mode élimination : éliminations pas encore appliquées
+    this.lastLevelUpHand = 0;     // main où les blindes viennent de monter (annonce)
   }
 
   // ------------------------------------------------------------------ joueurs
@@ -215,8 +234,8 @@ class PokerGame {
 
   // ------------------------------------------------------------ configuration
 
-  /** Tapis de départ et blindes : réglables avant la toute première main. */
-  configure(token, { stack, blinds } = {}) {
+  /** Tapis de départ, blindes de départ et leur évolution : réglables avant la première main. */
+  configure(token, { stack, blinds, mode } = {}) {
     this.assertChef(token);
     if (this.configured) throw new Error('Les réglages se font avant la première main.');
     if (stack !== undefined) {
@@ -226,11 +245,49 @@ class PokerGame {
       for (const p of this.players.values()) p.stack = v;
     }
     if (blinds !== undefined) {
-      const level = BLIND_LEVELS[Number(blinds)];
-      if (!level) throw new Error('Blindes invalides.');
-      [this.opts.smallBlind, this.opts.bigBlind] = level;
+      const level = Number(blinds);
+      if (!START_LEVELS.includes(level)) throw new Error('Blindes invalides.');
+      this.blindLevel = level;
+    }
+    if (mode !== undefined) {
+      if (!BLIND_MODES[mode]) throw new Error('Évolution des blindes invalide.');
+      this.blindMode = mode;
     }
     this.push();
+  }
+
+  get smallBlind() { return BLIND_SCHEDULE[this.blindLevel][0]; }
+  get bigBlind() { return BLIND_SCHEDULE[this.blindLevel][1]; }
+
+  levelMs() {
+    const m = BLIND_MODES[this.blindMode].minutes;
+    return m ? m * 60 * 1000 : null;
+  }
+
+  /**
+   * Fait monter les blindes avant une nouvelle main (jamais pendant) :
+   * selon le temps écoulé, ou selon les éliminations de la main précédente.
+   */
+  advanceBlinds(now) {
+    const before = this.blindLevel;
+    const step = this.levelMs();
+    if (step) {
+      if (this.nextLevelAt === null) this.nextLevelAt = now + step;
+      // Le temps de pause (partie arrêtée) ne compte pas.
+      if (this.pausedAt !== null) {
+        this.nextLevelAt += now - this.pausedAt;
+        this.pausedAt = null;
+      }
+      while (now >= this.nextLevelAt) {
+        this.blindLevel += 1;
+        this.nextLevelAt += step;
+      }
+    } else {
+      this.blindLevel += this.pendingLevelUps;
+      this.pendingLevelUps = 0;
+    }
+    this.blindLevel = Math.min(this.blindLevel, BLIND_SCHEDULE.length - 1);
+    if (this.blindLevel !== before) this.lastLevelUpHand = this.handNumber + 1;
   }
 
   /**
@@ -419,11 +476,14 @@ class PokerGame {
     this.pots = [];
     this.results = null;
     if (eligible.length < 2) {
+      // Pause : le chrono des blindes s'arrête jusqu'à la reprise.
+      if (this.configured && this.pausedAt === null) this.pausedAt = Date.now();
       this.phase = 'lobby';
       this.toAct = -1;
       this.push();
       return;
     }
+    this.advanceBlinds(Date.now());
     this.configured = true;
     this.handNumber += 1;
     for (const p of eligible) p.inHand = true;
@@ -444,10 +504,10 @@ class PokerGame {
     }
 
     this.phase = 'preflop';
-    this.minRaise = this.opts.bigBlind;
-    this.postBlind(this.playerAt(this.sbSeat), this.opts.smallBlind, 'sb');
-    this.postBlind(this.playerAt(this.bbSeat), this.opts.bigBlind, 'bb');
-    this.currentBet = this.opts.bigBlind;
+    this.minRaise = this.bigBlind;
+    this.postBlind(this.playerAt(this.sbSeat), this.smallBlind, 'sb');
+    this.postBlind(this.playerAt(this.bbSeat), this.bigBlind, 'bb');
+    this.currentBet = this.bigBlind;
 
     // Préflop : parle en premier le joueur après la grosse blinde.
     this.setTurnAfter(this.bbSeat);
@@ -610,7 +670,7 @@ class PokerGame {
       if (p.inHand && !p.folded && p.lastAction !== 'allin') p.lastAction = null;
     }
     this.currentBet = 0;
-    this.minRaise = this.opts.bigBlind;
+    this.minRaise = this.bigBlind;
     this.pots = this.buildPots().map(({ amount, eligible }) => ({ amount, eligible: eligible.map((p) => p.id) }));
 
     if (this.phase === 'river') {
@@ -733,6 +793,10 @@ class PokerGame {
   }
 
   finish(results) {
+    // Mode élimination : chaque joueur tombé à zéro fera monter les blindes d'un niveau.
+    if (this.blindMode === 'elimination') {
+      for (const p of this.players.values()) if (p.inHand && p.stack === 0) this.pendingLevelUps += 1;
+    }
     this.phase = 'showdown';
     this.toAct = -1;
     this.turnEndsAt = null;
@@ -781,8 +845,17 @@ class PokerGame {
       turnEndsAt: this.turnEndsAt,
       resultsEndsAt: this.resultsEndsAt,
       maxPlayers: this.opts.maxPlayers,
-      smallBlind: this.opts.smallBlind,
-      bigBlind: this.opts.bigBlind,
+      smallBlind: this.smallBlind,
+      bigBlind: this.bigBlind,
+      blindLevel: this.blindLevel,
+      blindMode: this.blindMode,
+      blindModes: BLIND_MODES,
+      startLevels: START_LEVELS.map((i) => ({ level: i, blinds: BLIND_SCHEDULE[i] })),
+      nextBlinds: BLIND_SCHEDULE[this.blindLevel + 1] || null,
+      // Chrono figé pendant une pause : on envoie le temps restant plutôt qu'une heure.
+      nextLevelAt: this.levelMs() && this.nextLevelAt && this.pausedAt === null ? this.nextLevelAt : null,
+      pendingLevelUps: this.pendingLevelUps,
+      blindsJustRose: this.lastLevelUpHand === this.handNumber && this.handNumber > 1,
       startingStack: this.opts.startingStack,
       freeRebuys: this.opts.freeRebuys,
       rebuyRequest: this.rebuyRequest && {
@@ -795,7 +868,6 @@ class PokerGame {
         total: this.rebuyRequest.pending.size + this.rebuyRequest.approved.size + this.rebuyRequest.refused.size,
         awaiting: [...this.rebuyRequest.pending],
       },
-      blindLevels: BLIND_LEVELS,
       canConfigure: !this.configured,
       hostPlayerId: this.hostPlayerId(),
       moderatorId: this.moderatorId,
@@ -867,4 +939,4 @@ class PokerGame {
   }
 }
 
-module.exports = { PokerGame, BLIND_LEVELS, DEFAULTS: DEFAULTS };
+module.exports = { PokerGame, BLIND_SCHEDULE, BLIND_MODES, START_LEVELS, DEFAULTS };

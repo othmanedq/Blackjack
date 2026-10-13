@@ -14,6 +14,7 @@ const els = {
   configBox: document.getElementById('config-box'),
   stackSelect: document.getElementById('stack-select'),
   blindsSelect: document.getElementById('blinds-select'),
+  modeSelect: document.getElementById('mode-select'),
   startBtn: document.getElementById('start-btn'),
   startLabel: document.getElementById('start-label'),
   collapseBtn: document.getElementById('collapse-btn'),
@@ -78,6 +79,9 @@ els.startBtn.addEventListener('click', () => {
 els.stackSelect.addEventListener('change', () => {
   socket.emit('host:configure', { stack: Number(els.stackSelect.value) }, (res) => res && !res.ok && showToast(res.message));
 });
+els.modeSelect.addEventListener('change', () => {
+  socket.emit('host:configure', { mode: els.modeSelect.value }, (res) => res && !res.ok && showToast(res.message));
+});
 els.blindsSelect.addEventListener('change', () => {
   socket.emit('host:configure', { blinds: Number(els.blindsSelect.value) }, (res) => res && !res.ok && showToast(res.message));
 });
@@ -103,16 +107,17 @@ function render() {
   if (!state) return;
   tableView.render(state);
   els.handMeta.textContent = state.handNumber ? `Main ${state.handNumber}` : 'Main —';
-  els.blindsMeta.textContent = `Blindes ${state.smallBlind}/${state.bigBlind}`;
+  els.blindsMeta.textContent = pokerBlindInfo(state);
 
   els.configBox.hidden = !state.canConfigure;
   if (state.canConfigure) {
     if (!els.blindsSelect.options.length) {
-      els.blindsSelect.innerHTML = state.blindLevels.map(([sb, bb], i) => `<option value="${i}">${sb} / ${bb}</option>`).join('');
+      els.blindsSelect.innerHTML = state.startLevels.map(({ level, blinds: [sb, bb] }) => `<option value="${level}">${sb} / ${bb}</option>`).join('');
+      els.modeSelect.innerHTML = Object.entries(state.blindModes).map(([key, m]) => `<option value="${key}">${m.label} (${m.detail})</option>`).join('');
     }
     if (document.activeElement !== els.stackSelect) els.stackSelect.value = String(state.startingStack);
-    const level = state.blindLevels.findIndex(([sb, bb]) => sb === state.smallBlind && bb === state.bigBlind);
-    if (document.activeElement !== els.blindsSelect && level >= 0) els.blindsSelect.value = String(level);
+    if (document.activeElement !== els.blindsSelect) els.blindsSelect.value = String(state.blindLevel);
+    if (document.activeElement !== els.modeSelect) els.modeSelect.value = state.blindMode;
   }
   const seated = state.players.filter((p) => p.connected && p.stack > 0).length;
   els.startBtn.disabled = !(state.phase === 'lobby' && seated >= 2);
@@ -130,6 +135,9 @@ function render() {
 function effects() {
   if (!prev) return;
   if (state.board.length > prev.board.length || state.handNumber !== prev.handNumber) sfx.card();
+  if (state.blindsJustRose && state.handNumber !== prev.handNumber) {
+    showToast(`Les blindes passent à ${state.smallBlind}/${state.bigBlind}`);
+  }
   const turn = state.players.find((p) => p.isTurn);
   const turnBefore = prev.players.find((p) => p.isTurn);
   if (turn && (!turnBefore || turn.id !== turnBefore.id)) sfx.turn();
@@ -171,3 +179,8 @@ function showToast(message) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => (els.toast.hidden = true), 3200);
 }
+
+// Compte à rebours des blindes dans la barre du haut.
+setInterval(() => {
+  if (state) els.blindsMeta.textContent = pokerBlindInfo(state);
+}, 1000);

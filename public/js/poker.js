@@ -25,6 +25,8 @@ const els = {
   configPanel: $('config-panel'),
   stackOptions: $('stack-options'),
   blindOptions: $('blind-options'),
+  blindModes: $('blind-modes'),
+  miniBlinds: $('mini-blinds'),
   configHint: $('config-hint'),
   miniTable: $('mini-table'),
   miniBoard: $('mini-board'),
@@ -305,6 +307,11 @@ els.stackOptions.addEventListener('click', (e) => {
   if (!b) return;
   socket.emit('player:configure', { stack: Number(b.dataset.stack) }, (res) => res && !res.ok && showToast(res.message));
 });
+els.blindModes.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-mode]');
+  if (!b) return;
+  socket.emit('player:configure', { mode: b.dataset.mode }, (res) => res && !res.ok && showToast(res.message));
+});
 els.blindOptions.addEventListener('click', (e) => {
   const b = e.target.closest('[data-blinds]');
   if (!b) return;
@@ -461,11 +468,15 @@ function renderConfig() {
   const chef = isChef();
   els.stackOptions.innerHTML = STACK_PRESETS.map((v) =>
     `<button type="button" class="stake-btn${v === state.startingStack ? ' selected' : ''}" data-stack="${v}" ${chef ? '' : 'disabled'}>${fmt.format(v)}</button>`).join('');
-  els.blindOptions.innerHTML = state.blindLevels.map(([sb, bb], i) =>
-    `<button type="button" class="stake-btn${sb === state.smallBlind && bb === state.bigBlind ? ' selected' : ''}" data-blinds="${i}" ${chef ? '' : 'disabled'}>${sb}/${bb}</button>`).join('');
+  els.blindModes.innerHTML = Object.entries(state.blindModes).map(([key, m]) =>
+    `<button type="button" class="mode-btn${key === state.blindMode ? ' selected' : ''}" data-mode="${key}" ${chef ? '' : 'disabled'}>
+      <span class="mode-label">${m.label}</span><span class="mode-sub">${m.detail}</span>
+    </button>`).join('');
+  els.blindOptions.innerHTML = state.startLevels.map(({ level, blinds: [sb, bb] }) =>
+    `<button type="button" class="stake-btn${level === state.blindLevel ? ' selected' : ''}" data-blinds="${level}" ${chef ? '' : 'disabled'}>${sb}/${bb}</button>`).join('');
   els.configHint.textContent = chef
     ? 'Chef de table : ces réglages se figent au lancement de la partie.'
-    : `En attente du chef de table — tapis ${fmt.format(state.startingStack)}, blindes ${state.smallBlind}/${state.bigBlind}.`;
+    : `En attente du chef de table — tapis ${fmt.format(state.startingStack)}, blindes ${state.smallBlind}/${state.bigBlind}, partie ${state.blindModes[state.blindMode].label.toLowerCase()}.`;
 }
 
 const ACTION_TXT = POKER_ACTION_LABELS;
@@ -480,6 +491,7 @@ function miniCard(c) {
 function renderMiniTable() {
   syncHand(els.miniBoard, state.board);
   els.miniPot.hidden = !state.pot;
+  els.miniBlinds.hidden = state.phase === 'lobby';
   els.miniPot.innerHTML = `${iconHtml('chips')} Pot ${fmt.format(state.pot)}`;
   const res = state.results;
   const tiles = state.players.filter((p) => p.id !== token).map((p) => {
@@ -661,6 +673,9 @@ function feedback() {
     if (navigator.vibrate) navigator.vibrate([90, 40, 90]);
   }
   if (state.board.length > prev.board.length || state.handNumber !== prev.handNumber) sfx.card();
+  if (state.blindsJustRose && state.handNumber !== prev.handNumber) {
+    showToast(`Les blindes passent à ${state.smallBlind}/${state.bigBlind}`, 'win');
+  }
   if (state.phase === 'showdown' && prev.phase !== 'showdown' && state.results) {
     const net = state.results.net[token];
     if (net > 0) { sfx.win(); burstConfetti(50); }
@@ -669,6 +684,10 @@ function feedback() {
 }
 
 function tick() {
+  if (state && joined && !els.miniBlinds.hidden) {
+    const txt = pokerBlindInfo(state);
+    if (els.miniBlinds.textContent !== txt) els.miniBlinds.textContent = txt;
+  }
   if (state && joined) {
     const me = findMe();
     if (me && me.isTurn && state.turnEndsAt) {

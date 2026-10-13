@@ -287,6 +287,52 @@ async function untilShowdown(game, maxMs = 3000) {
     console.log('✓ poker : 3 recaves automatiques, puis vote à la majorité');
   }
 
+  // ------------------------------------------------ blindes progressives
+  {
+    // Chrono : un niveau de plus quand le temps est écoulé, jamais en pleine main.
+    const { game, ps: [a] } = table(2);
+    game.configure('a', { mode: 'fast', blinds: 3 });
+    assert.throws(() => game.configure('a', { mode: 'turbo' }), /invalide/);
+    game.start('a');
+    assert.deepStrictEqual([game.smallBlind, game.bigBlind], [5, 10]);
+    assert.ok(game.nextLevelAt > Date.now(), 'prochain niveau programmé');
+    game.nextLevelAt = Date.now() - 1; // le temps du niveau est écoulé…
+    assert.strictEqual(game.bigBlind, 10, '…mais la main en cours garde ses blindes');
+    game.act(game.playerAt(game.toAct).id, 'fold');
+    game.clearTimers();
+    game.startHand();
+    assert.deepStrictEqual([game.smallBlind, game.bigBlind], [10, 20], 'nouvelle main : niveau suivant');
+    assert.strictEqual(game.stateFor('a').blindsJustRose, true, 'annonce de la hausse');
+    assert.throws(() => game.configure('a', { mode: 'long' }), /avant la première main/);
+    game.clearTimers();
+
+    // Pause : le chrono s'arrête quand la partie s'arrête faute de joueurs.
+    const before = game.nextLevelAt;
+    game.pausedAt = Date.now() - 60000; // une minute de pause
+    game.advanceBlinds(Date.now());
+    assert.ok(game.nextLevelAt - before >= 59000, 'le temps de pause est rendu au niveau en cours');
+    console.log('✓ poker : blindes qui montent au chrono, figées pendant les pauses');
+  }
+  {
+    // Élimination : chaque joueur tombé à zéro fait monter les blindes d'un niveau.
+    const { game, ps: [a, b, c] } = table(3);
+    game.configure('a', { mode: 'elimination' });
+    c.stack = 30;
+    rig(game, [['2c', '3d'], ['7h', '2s'], ['Ah', 'Ad']], 'Ks 9d 4c Jh 8s'); // ordre : b, c, a
+    game.start('a');
+    game.act('a', 'raise', 100);
+    game.act('b', 'fold');
+    game.act('c', 'allin'); // Carl à tapis avec 7-2 contre As-As
+    await untilShowdown(game);
+    assert.strictEqual(c.stack, 0, 'Carl est éliminé');
+    assert.strictEqual(game.bigBlind, 10);
+    game.clearTimers();
+    game.startHand();
+    assert.deepStrictEqual([game.smallBlind, game.bigBlind], [10, 20], 'une élimination = un niveau de plus');
+    game.clearTimers();
+    console.log('✓ poker : blindes qui montent à chaque élimination');
+  }
+
   console.log('✓ tous les tests de poker passent');
   process.exit(0);
 })().catch((err) => {

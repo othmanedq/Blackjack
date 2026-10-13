@@ -9,12 +9,17 @@ Le serveur ouvre **deux tables en même temps**. La page d'accueil (`/`) propose
 | | Blackjack | Poker |
 |---|---|---|
 | Joueurs (téléphones) | `/blackjack` | `/poker` |
-| Écran de la table | `/host` | `/poker/host` |
+| Écran de la table | `/blackjack/host` | `/poker/host` |
 | Places | 7 | 8 |
 
 ### Poker : Texas Hold'em No Limit
 
-- **Avant la première main**, le chef de table (ou l'écran de la table) choisit le tapis de départ (500 à 10 000) et les blindes (de 1/2 à 100/200). La partie se lance, puis les mains s'enchaînent toutes seules.
+- **Avant la première main**, le chef de table (ou l'écran de la table) choisit le tapis de départ (500 à 10 000), les blindes de départ (de 1/2 à 100/200) et **leur évolution** :
+  - **Rapide** : un niveau de plus toutes les 5 minutes ;
+  - **Longue** : toutes les 15 minutes ;
+  - **À chaque élimination** : un niveau de plus chaque fois qu'un joueur tombe à zéro.
+
+  Les niveaux suivent une échelle de tournoi (5/10, 10/20, 15/30, 25/50, 50/100, 75/150, 100/200…). La hausse s'applique toujours au début d'une main, jamais pendant, et elle est annoncée à tous. Le chrono s'arrête quand la partie est en pause faute de joueurs. Le niveau suivant et le temps restant sont affichés en permanence.
 - **Règles** : bouton tournant, petite et grosse blinde (en tête-à-tête, le bouton paie la petite blinde et parle en premier avant le flop), une carte brûlée avant chaque tirage, relance minimale égale à la dernière relance complète, un tapis trop court pour une relance complète ne rouvre pas les enchères, pots annexes, mise non suivie rendue, pot partagé à égalité.
 - **Sur le téléphone** : tes deux cartes en grand avec la force de ta main en direct (« Paire de dames »), la table en version compacte, et les actions Se coucher / Checker ou Suivre / Relancer. La relance propose Min, ½ pot, Pot et Tapis, ou un curseur.
 - **Sur ordinateur ou tablette** : la table ovale complète, ta place toujours en bas.
@@ -35,7 +40,7 @@ npm start
 
 Puis :
 
-1. **Sur l'ordinateur** (la table) : ouvrir **http://localhost:3000/host** — idéalement en plein écran (F11).
+1. **Sur l'ordinateur** (la table) : ouvrir **http://localhost:3000/blackjack/host** — idéalement en plein écran (F11).
 2. **Sur les téléphones** : scanner le **QR code** affiché à l'écran (ou taper l'adresse `http://<IP-locale>:3000/` indiquée). Les téléphones doivent être sur le **même réseau Wi-Fi** que l'ordinateur.
 3. Chaque joueur choisit un **pseudo, un avatar et une couleur**, puis prend place.
 4. L'hôte clique sur **« Lancer la manche »** : les joueurs misent depuis leur téléphone, les cartes sont distribuées, et c'est parti !
@@ -48,7 +53,7 @@ Puis :
 
 Avant de lancer la toute première manche, le **chef de table** (le premier joueur connecté) doit choisir un mode sur son téléphone — ou l'écran table s'il est ouvert. Ce choix ne peut plus être changé une fois la partie commencée.
 
-**Tous sur un écran** : un ordinateur affiche la table (`/host`) — croupier, mains de tous les joueurs, QR code — et chaque téléphone sert uniquement de manette (pas de panneau croupier/autres joueurs sur mobile). C'est l'écran de la table qui a le bouton « Lancer la manche ».
+**Tous sur un écran** : un ordinateur affiche la table (`/blackjack/host`) — croupier, mains de tous les joueurs, QR code — et chaque téléphone sert uniquement de manette (pas de panneau croupier/autres joueurs sur mobile). C'est l'écran de la table qui a le bouton « Lancer la manche ».
 
 **Chacun son écran** : aucun ordinateur nécessaire, personne n'a besoin de le regarder. Chaque téléphone affiche, en plus de sa propre main, le panneau **« La table »** : les cartes du croupier (la 2ᵉ reste face cachée jusqu'à son tour) et les mains, scores et statuts de tous les autres joueurs — repliable d'un tap pour une manette plus compacte. Le chef de table a le bouton « Lancer la manche » directement sur son téléphone.
 
@@ -187,7 +192,7 @@ Le serveur se déploie tel quel sur n'importe quel hébergeur Node.js (Render, R
 1. **New → Web Service**, connectez votre dépôt GitHub et choisissez la branche du jeu.
 2. Build command : `npm install` — Start command : `npm start`.
 3. Dans **Environment**, ajoutez `PUBLIC_URL` = l'URL de votre service (ex. `https://blackjack-royale.onrender.com`) pour que le QR code et les liens pointent vers la bonne adresse.
-4. Déployez, puis partagez l'URL : les joueurs la rejoignent depuis n'importe où (4G comprise), et `/host` reste la vue table.
+4. Déployez, puis partagez l'URL : les joueurs la rejoignent depuis n'importe où (4G comprise), et `/blackjack/host` (ou `/poker/host`) reste la vue table.
 
 À savoir : il n'y a **qu'une seule table** par serveur — toute personne ayant l'URL rejoint la même partie, ne la partagez qu'à vos amis. Sur le plan gratuit de Render, le serveur s'endort après ~15 min d'inactivité (première connexion un peu lente, puis tout est normal) et la partie en cours est remise à zéro s'il s'endort.
 
