@@ -62,6 +62,9 @@
         <span id="me-name-text"></span>
       </span>
       <span class="me-balance"><i data-icon="chip"></i> <span id="me-balance">0</span></span>
+      <button type="button" class="react-btn mod-btn" id="mod-btn" aria-label="Modération" hidden>
+        <i data-icon="shield"></i>
+      </button>
       <button type="button" class="react-btn chat-btn" id="chat-btn" aria-label="Ouvrir le chat" aria-expanded="false">
         <i data-icon="chat"></i>
         <span class="chat-badge" id="chat-badge" hidden>0</span>
@@ -254,6 +257,26 @@
     </div>
   </div>
 
+  <!-- Modération : réservée au détenteur du code modérateur -->
+  <div class="modal-overlay" id="mod-modal" hidden>
+    <div class="modal-card mod-card">
+      <button type="button" class="modal-close" id="mod-close" aria-label="Fermer"><i data-icon="cross"></i></button>
+      <h2 class="display gold-text">Modération</h2>
+
+      <label class="mod-toggle">
+        <input type="checkbox" id="mod-auto-rebuy" />
+        <span class="mod-switch"></span>
+        <span class="mod-toggle-text">Re-caves acceptées automatiquement<small>Sans vote : un joueur à sec est recrédité dès qu’il demande.</small></span>
+      </label>
+
+      <div class="mod-rebuy" id="mod-rebuy" hidden></div>
+
+      <p class="mod-label">Jetons : montant par clic</p>
+      <div class="mod-steps" id="mod-steps"></div>
+      <div class="mod-list" id="mod-list"></div>
+    </div>
+  </div>
+
   <!-- Re-cave : demande d'un joueur à sec, vote des autres (au-dessus des autres modales) -->
   <div class="modal-overlay" id="rebuy-modal" hidden>
     <div class="modal-card rebuy-card">
@@ -265,8 +288,8 @@
     </div>
   </div>
 
-  <!-- Aperçu des nouveaux messages (ordinateur / tablette), quand le chat est fermé -->
-  <div class="chat-peek" id="chat-peek" aria-live="polite"></div>
+  <!-- Dernier message du chat (ordinateur / tablette), quand le chat est fermé -->
+  <button type="button" class="chat-peek" id="chat-peek" aria-live="polite" aria-label="Ouvrir le chat" hidden></button>
 
   <!-- Chat textuel de la table -->
   <div class="chat-sheet" id="chat-sheet" hidden>

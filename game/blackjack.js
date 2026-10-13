@@ -164,6 +164,10 @@ class Game {
     this.timers = { bet: null, turn: null, dealer: null, results: null, insurance: null };
     // Demande de re-cave en attente : { playerId, pending:Set, approved:Set }
     this.rebuyRequest = null;
+    // Modérateur permanent (code secret) : chef de table dès qu'il est connecté.
+    this.moderatorId = null;
+    // Re-caves accordées sans vote (réglage du modérateur).
+    this.autoRebuy = false;
     // Mode de jeu : 'table' (écran commun) ou 'phones' (chacun son écran).
     // Choix obligatoire avant de lancer la toute première manche.
     this.mode = null;
@@ -899,6 +903,13 @@ class Game {
     const voters = [...this.players.values()]
       .filter((x) => x.connected && x.id !== token)
       .map((x) => x.id);
+    // Re-cave automatique (réglage du modérateur), ou demandée par le modérateur lui-même.
+    if (this.autoRebuy || token === this.moderatorId) {
+      p.balance = this.opts.startingBalance;
+      p.rebuyRetryAt = 0;
+      this.push();
+      return;
+    }
     if (voters.length === 0) {
       // Seul à la table : rien à voter.
       p.balance = this.opts.startingBalance;
@@ -1049,10 +1060,70 @@ class Game {
    * écran » (sans ordinateur-table), c'est lui qui lance les manches.
    */
   hostPlayerId() {
+    const mod = this.moderatorId && this.players.get(this.moderatorId);
+    if (mod && mod.connected) return mod.id;
     const first = [...this.players.values()]
       .filter((p) => p.connected)
       .sort((a, b) => a.joinedAt - b.joinedAt)[0];
     return first ? first.id : null;
+  }
+
+  /**
+   * Désigne le modérateur (vérifié par le serveur grâce au code secret).
+   * Il est chef de table tant qu'il est connecté ; sinon le rôle revient
+   * au joueur connecté le plus ancien, et lui revient à son retour.
+   */
+  setModerator(token) {
+    if (!this.players.has(token)) throw new Error('Joueur inconnu.');
+    this.moderatorId = token;
+    this.push();
+  }
+
+  // ------------------------------------------------------------- modération
+
+  assertModerator(token) {
+    if (!token || token !== this.moderatorId) throw new Error('Réservé au modérateur.');
+  }
+
+  /**
+   * Le modérateur ajoute (delta > 0) ou retire (delta < 0) des jetons à un
+   * joueur, à tout moment : seul le solde disponible bouge, jamais une mise
+   * déjà sur le tapis. Un retrait s'arrête à 0.
+   * @returns {number} variation réellement appliquée
+   */
+  adjustBalance(modToken, targetToken, delta) {
+    this.assertModerator(modToken);
+    const target = this.players.get(targetToken);
+    if (!target) throw new Error('Ce joueur n’est plus à la table.');
+    const d = Math.trunc(Number(delta));
+    if (!Number.isFinite(d) || d === 0 || Math.abs(d) > 1000000) throw new Error('Montant invalide.');
+    const before = target.balance;
+    target.balance = Math.min(10000000, Math.max(0, before + d));
+    this.push();
+    return target.balance - before;
+  }
+
+  setAutoRebuy(modToken, on) {
+    this.assertModerator(modToken);
+    this.autoRebuy = !!on;
+    // Une demande en cours est accordée tout de suite si l'on passe en automatique.
+    if (this.autoRebuy && this.rebuyRequest) this.grantRebuy();
+    this.push();
+  }
+
+  /**
+   * Le modérateur tranche seul la re-cave en cours.
+   * @returns {{ outcome: 'granted' | 'denied', requester: string }}
+   */
+  decideRebuy(modToken, accept) {
+    this.assertModerator(modToken);
+    const r = this.rebuyRequest;
+    if (!r) throw new Error('Aucune demande de re-cave en cours.');
+    const requester = r.playerId;
+    if (accept) this.grantRebuy();
+    else this.denyRebuy();
+    this.push();
+    return { outcome: accept ? 'granted' : 'denied', requester };
   }
 
   // ---------------------------------------------------------------- état public
@@ -1076,6 +1147,8 @@ class Game {
       minBet: this.opts.minBet,
       serverNow: Date.now(),
       hostPlayerId: this.hostPlayerId(),
+      moderatorId: this.moderatorId,
+      autoRebuy: this.autoRebuy,
       mode: this.mode,
       startingBalance: this.opts.startingBalance,
       canConfigure: this.phase === 'lobby' && this.roundNumber === 0,

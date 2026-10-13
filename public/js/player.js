@@ -36,6 +36,13 @@ const els = {
   sideHelp: document.getElementById('side-help'),
   reactBtn: document.getElementById('react-btn'),
   chatBtn: document.getElementById('chat-btn'),
+  modBtn: document.getElementById('mod-btn'),
+  modModal: document.getElementById('mod-modal'),
+  modClose: document.getElementById('mod-close'),
+  modAutoRebuy: document.getElementById('mod-auto-rebuy'),
+  modRebuy: document.getElementById('mod-rebuy'),
+  modSteps: document.getElementById('mod-steps'),
+  modList: document.getElementById('mod-list'),
   chatBadge: document.getElementById('chat-badge'),
   chatSheet: document.getElementById('chat-sheet'),
   chatList: document.getElementById('chat-list'),
@@ -109,6 +116,18 @@ let token = localStorage.getItem('bj_token') || newToken();
 localStorage.setItem('bj_token', token);
 
 let profile = JSON.parse(localStorage.getItem('bj_profile') || 'null');
+
+// Lien modérateur (?admin=code) : le code est retenu sur cet appareil puis
+// retiré de l'adresse, pour qu'il ne fuite pas dans une capture ou un partage.
+(() => {
+  const url = new URL(location.href);
+  const key = url.searchParams.get('admin');
+  if (!key) return;
+  localStorage.setItem('bj_admin_key', key);
+  url.searchParams.delete('admin');
+  history.replaceState(null, '', url.pathname + url.search + url.hash);
+})();
+const adminKey = () => localStorage.getItem('bj_admin_key') || undefined;
 let joined = false;
 let joining = false; // une inscription est en cours (évite un faux « exclu »)
 let state = null;
@@ -189,8 +208,14 @@ els.joinForm.addEventListener('submit', (e) => {
 
 function join(opts = {}) {
   joining = true;
-  socket.emit('player:join', { token, ...profile, ignoreResume: !!opts.ignoreResume }, (res) => {
+  socket.emit('player:join', { token, ...profile, ignoreResume: !!opts.ignoreResume, adminKey: adminKey() }, (res) => {
     joining = false;
+    if (res && res.adminKeyRejected) {
+      // Code périmé (changé côté serveur) : on l'oublie.
+      localStorage.removeItem('bj_admin_key');
+      showToast('Ton code modérateur n’est plus valable.');
+    }
+    if (res && res.moderator) showToast('Tu es le modérateur de la table.', 'win');
     if (res && res.resumeCandidate) {
       showResumeModal(res.resumeCandidate);
       return;
@@ -420,9 +445,9 @@ function setChatUnread(n) {
 function openChat(open) {
   els.chatSheet.hidden = !open;
   els.chatBtn.setAttribute('aria-expanded', String(open));
+  renderChatPeek();
   if (open) {
     setChatUnread(0);
-    els.chatPeek.innerHTML = '';
     closeReactTray();
     els.chatList.scrollTop = els.chatList.scrollHeight;
     // Pas de focus automatique sur téléphone : le clavier masquerait les messages.
@@ -460,34 +485,54 @@ socket.on('chat:history', (messages = []) => {
   messages.forEach(appendChatMessage);
 });
 
-/* Sur ordinateur ou tablette, un nouveau message s'affiche en petit quelques
-   secondes ; un clic dessus ouvre le chat. Sur téléphone, la pastille suffit
-   (un aperçu masquerait les boutons de jeu). */
-const PEEK_MAX = 3;
-const PEEK_MS = 6000;
+/* Sur ordinateur ou tablette, un nouveau message s'affiche en petit en bas à
+   gauche quelques secondes, juste pour le signaler ; un clic ouvre le chat.
+   Sur téléphone, la pastille suffit (la carte masquerait les boutons de jeu). */
+const PEEK_MS = 5000;
+let lastChatMessage = null; // message à signaler, effacé après PEEK_MS
+let peekTimer = null;
 
-function showChatPeek(m) {
-  const card = document.createElement('button');
-  card.type = 'button';
-  card.className = 'peek';
-  card.innerHTML = `
-    <span class="chat-avatar" style="--p-color:${esc(m.color)}">${avatarHtml(m.avatar)}</span>
-    <span class="peek-body"><span class="chat-name"></span><span class="peek-text"></span></span>`;
-  card.querySelector('.chat-name').textContent = m.name;
-  card.querySelector('.peek-text').textContent = m.text;
-  card.addEventListener('click', () => openChat(true));
-  els.chatPeek.appendChild(card);
-  while (els.chatPeek.children.length > PEEK_MAX) els.chatPeek.firstElementChild.remove();
-  setTimeout(() => card.classList.add('fade'), PEEK_MS);
-  setTimeout(() => card.remove(), PEEK_MS + 500);
+function peekChatMessage(m) {
+  lastChatMessage = m;
+  clearTimeout(peekTimer);
+  peekTimer = setTimeout(() => {
+    lastChatMessage = null;
+    renderChatPeek();
+  }, PEEK_MS);
+  renderChatPeek();
 }
+
+function renderChatPeek() {
+  const m = lastChatMessage;
+  const show = !!m && joined && wideMql.matches && !chatIsOpen();
+  els.chatPeek.hidden = !show;
+  if (!show) return;
+  if (els.chatPeek.dataset.id === String(m.id)) return;
+  els.chatPeek.dataset.id = String(m.id);
+  els.chatPeek.innerHTML = `
+    <span class="chat-avatar" style="--p-color:${esc(m.color)}">${avatarHtml(m.avatar)}</span>
+    <span class="peek-body">
+      <span class="peek-meta"><span class="chat-name"></span><span class="chat-time"></span></span>
+      <span class="peek-text"></span>
+    </span>`;
+  els.chatPeek.querySelector('.chat-name').textContent = m.name;
+  els.chatPeek.querySelector('.chat-time').textContent = chatTime.format(new Date(m.at));
+  els.chatPeek.querySelector('.peek-text').textContent = m.text;
+  // Petite animation à chaque nouveau message.
+  els.chatPeek.classList.remove('pop');
+  void els.chatPeek.offsetWidth;
+  els.chatPeek.classList.add('pop');
+}
+
+els.chatPeek.addEventListener('click', () => openChat(true));
+wideMql.addEventListener('change', renderChatPeek);
 
 socket.on('chat:message', (m) => {
   appendChatMessage(m);
   if (m.playerId !== token && !chatIsOpen()) {
     setChatUnread(chatUnread + 1);
     sfx.click();
-    if (joined && wideMql.matches) showChatPeek(m);
+    peekChatMessage(m);
   }
 });
 
@@ -608,6 +653,11 @@ function onRebuyClick(e) {
     socket.emit('player:requestRebuy', (res) => {
       if (res && !res.ok) showToast(res.message);
     });
+  } else if (isModerator()) {
+    // Le modérateur ne vote pas : sa décision est définitive.
+    socket.emit('mod:decideRebuy', { accept: action === 'yes' }, (res) => {
+      if (res && !res.ok) showToast(res.message);
+    });
   } else {
     socket.emit('player:voteRebuy', { accept: action === 'yes' }, (res) => {
       if (res && !res.ok) showToast(res.message);
@@ -710,7 +760,9 @@ function renderRebuy(me) {
       <p class="modal-text"><strong>${esc(r.playerName)}</strong> n'a plus de jetons et demande
         une re-cave de <strong>${fmt.format(r.amount)}</strong>.</p>
       ${progress}
-      <p class="rebuy-note">La majorité décide. Un refus ne l'exclut pas : il reste à la table.</p>
+      <p class="rebuy-note">${isModerator()
+        ? 'Tu es modérateur : ta décision est définitive, sans attendre les autres.'
+        : 'La majorité décide. Un refus ne l\'exclut pas : il reste à la table.'}</p>
       <div class="rebuy-actions">
         <button type="button" class="rebuy-yes" data-rebuy="yes">${iconHtml('check')} Accepter</button>
         <button type="button" class="rebuy-no" data-rebuy="no">${iconHtml('cross')} Refuser</button>
@@ -906,6 +958,104 @@ els.leaveBtn.addEventListener('click', () => {
   });
 });
 
+/* ------------------------------- modération ------------------------------- */
+
+const MOD_STEPS = [100, 500, 1000, 5000];
+let modStep = 500;
+
+function isModerator() {
+  return !!(state && state.moderatorId && state.moderatorId === token);
+}
+
+els.modSteps.innerHTML = MOD_STEPS.map((v) =>
+  `<button type="button" class="stake-btn" data-step="${v}">${fmt.format(v)}</button>`).join('');
+
+els.modBtn.addEventListener('click', () => {
+  sfx.click();
+  els.modModal.hidden = false;
+  renderModeration();
+});
+els.modClose.addEventListener('click', () => { sfx.click(); els.modModal.hidden = true; });
+
+els.modSteps.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-step]');
+  if (!btn) return;
+  sfx.click();
+  modStep = Number(btn.dataset.step);
+  renderModeration();
+});
+
+els.modAutoRebuy.addEventListener('change', () => {
+  socket.emit('mod:autoRebuy', { on: els.modAutoRebuy.checked }, (res) => {
+    if (res && !res.ok) showToast(res.message);
+  });
+});
+
+els.modRebuy.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-decide]');
+  if (!btn) return;
+  sfx.click();
+  socket.emit('mod:decideRebuy', { accept: btn.dataset.decide === 'yes' }, (res) => {
+    if (res && !res.ok) showToast(res.message);
+  });
+});
+
+els.modList.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-adjust]');
+  if (!btn) return;
+  const delta = Number(btn.dataset.adjust) * modStep;
+  socket.emit('mod:adjust', { target: btn.dataset.target, delta }, (res) => {
+    if (res && !res.ok) return showToast(res.message);
+    sfx.chip();
+  });
+});
+
+function renderModeration() {
+  const mod = isModerator();
+  els.modBtn.hidden = !mod;
+  if (!mod) {
+    els.modModal.hidden = true;
+    return;
+  }
+  if (els.modModal.hidden) return;
+  els.modAutoRebuy.checked = !!state.autoRebuy;
+  els.modSteps.querySelectorAll('[data-step]').forEach((b) => {
+    b.classList.toggle('selected', Number(b.dataset.step) === modStep);
+  });
+
+  const r = state.rebuyRequest;
+  els.modRebuy.hidden = !r;
+  setHtml(els.modRebuy, r
+    ? `<p>${iconHtml('chipPlus')} Re-cave demandée par <strong>${esc(r.playerName)}</strong>
+        (${r.approved}/${r.needed} acceptations)</p>
+       <div class="rebuy-actions">
+         <button type="button" class="rebuy-yes" data-decide="yes">${iconHtml('check')} Accorder</button>
+         <button type="button" class="rebuy-no" data-decide="no">${iconHtml('cross')} Refuser</button>
+       </div>`
+    : '');
+
+  setHtml(els.modList, state.players.map((p) => `
+    <div class="mod-row">
+      <span class="pm-avatar" style="--p-color:${esc(p.color)}">${avatarHtml(p.avatar)}</span>
+      <span class="pm-name">${esc(p.name)}${p.id === token ? ' <small>(toi)</small>' : ''}</span>
+      <span class="pm-bal">${fmt.format(p.balance)}</span>
+      <button type="button" class="mod-adj minus" data-adjust="-1" data-target="${esc(p.id)}"
+        aria-label="Retirer ${fmt.format(modStep)} à ${esc(p.name)}" ${p.balance === 0 ? 'disabled' : ''}>−</button>
+      <button type="button" class="mod-adj plus" data-adjust="1" data-target="${esc(p.id)}"
+        aria-label="Ajouter ${fmt.format(modStep)} à ${esc(p.name)}">+</button>
+    </div>`).join(''));
+}
+
+// Le joueur dont le solde a été modifié en est prévenu.
+socket.on('player:modAdjust', ({ amount } = {}) => {
+  if (amount > 0) {
+    showToast(`Le modérateur t’a ajouté ${fmt.format(amount)} jetons.`, 'win');
+    sfx.win();
+  } else {
+    showToast(`Le modérateur t’a retiré ${fmt.format(-amount)} jetons.`);
+  }
+});
+
 /* -------------------- table repliable + chef de table -------------------- */
 
 let tableCollapsed = JSON.parse(localStorage.getItem('bj_table_collapsed') || 'false');
@@ -1005,6 +1155,8 @@ function render() {
   // commun qui lance les manches).
   const isChef = state.hostPlayerId === me.id;
   els.meCrown.hidden = !isChef;
+  renderModeration();
+  renderChatPeek();
   els.meNameText.textContent = profile.name;
   const canStart = isChef && phoneUiEnabled() && (state.phase === 'lobby' || state.phase === 'results');
   els.phoneStart.hidden = !canStart;

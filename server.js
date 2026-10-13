@@ -1,6 +1,8 @@
 'use strict';
 
 const os = require('os');
+const fs = require('fs');
+const crypto = require('crypto');
 const path = require('path');
 const http = require('http');
 const express = require('express');
@@ -18,6 +20,37 @@ const io = new Server(server);
 app.use(express.static(path.join(__dirname, 'public')));
 // Visages du croupier et des réactions (asset/face-<nom>.webp).
 app.use('/asset', express.static(path.join(__dirname, 'asset'), { maxAge: '7d' }));
+
+/**
+ * Code modérateur : ADMIN_KEY si fourni, sinon un code généré une fois et
+ * gardé dans .admin-key (hors git) pour rester le même d'un lancement à l'autre.
+ */
+function loadAdminKey() {
+  if (process.env.ADMIN_KEY) return process.env.ADMIN_KEY.trim();
+  const file = path.join(__dirname, '.admin-key');
+  try {
+    const saved = fs.readFileSync(file, 'utf8').trim();
+    if (saved) return saved;
+  } catch {
+    // Pas encore de code : on en crée un.
+  }
+  const fresh = crypto.randomBytes(9).toString('base64url');
+  try {
+    fs.writeFileSync(file, `${fresh}\n`, { mode: 0o600 });
+  } catch (err) {
+    console.warn('  Code modérateur non sauvegardé (il changera au prochain lancement) :', err.message);
+  }
+  return fresh;
+}
+const ADMIN_KEY = loadAdminKey();
+
+/** Comparaison en temps constant, pour ne pas laisser deviner le code. */
+function isAdminKey(candidate) {
+  if (typeof candidate !== 'string' || !candidate) return false;
+  const a = Buffer.from(candidate);
+  const b = Buffer.from(ADMIN_KEY);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
 
 const REACTIONS = ['laughing', 'cool', 'smirk', 'shocked', 'crossed', 'sad', 'angry', 'neutral'];
 const REACTION_COOLDOWN_MS = 1500;
@@ -182,7 +215,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('player:join', ({ token, name, color, avatar, ignoreResume } = {}, ack) => {
+  socket.on('player:join', ({ token, name, color, avatar, ignoreResume, adminKey } = {}, ack) => {
     try {
       if (!token || typeof token !== 'string' || token.length > 64) {
         throw new Error('Session invalide, recharge la page.');
@@ -211,7 +244,12 @@ io.on('connection', (socket) => {
       const player = game.addPlayer({ token, name, color, avatar });
       player.ip = ip;
       socketPlayer.set(socket.id, token);
-      if (typeof ack === 'function') ack({ ok: true, id: player.id });
+      const moderator = isAdminKey(adminKey);
+      if (moderator) game.setModerator(token);
+      if (typeof ack === 'function') {
+        // adminKeyRejected : le code enregistré sur l'appareil n'est plus le bon.
+        ack({ ok: true, id: player.id, moderator, adminKeyRejected: !!adminKey && !moderator });
+      }
     } catch (err) {
       if (typeof ack === 'function') ack({ ok: false, message: err.message });
     }
@@ -329,6 +367,41 @@ io.on('connection', (socket) => {
     });
   });
 
+  // ------------------------------------------------ modération (code secret)
+
+  /** Prévient le demandeur d'une re-cave du verdict. */
+  function notifyRebuyResult(requester, outcome) {
+    for (const [sid, t] of socketPlayer) {
+      if (t === requester) io.to(sid).emit('player:rebuyResult', { outcome });
+    }
+  }
+
+  socket.on('mod:adjust', ({ target, delta } = {}, ack) => {
+    respond(ack, () => {
+      const applied = game.adjustBalance(socketPlayer.get(socket.id), target, delta);
+      if (applied !== 0) {
+        for (const [sid, t] of socketPlayer) {
+          if (t === target) io.to(sid).emit('player:modAdjust', { amount: applied });
+        }
+      }
+    });
+  });
+
+  socket.on('mod:autoRebuy', ({ on } = {}, ack) => {
+    respond(ack, () => {
+      const pending = game.rebuyRequest && game.rebuyRequest.playerId;
+      game.setAutoRebuy(socketPlayer.get(socket.id), on);
+      if (pending && !game.rebuyRequest) notifyRebuyResult(pending, 'granted');
+    });
+  });
+
+  socket.on('mod:decideRebuy', ({ accept } = {}, ack) => {
+    respond(ack, () => {
+      const { outcome, requester } = game.decideRebuy(socketPlayer.get(socket.id), !!accept);
+      notifyRebuyResult(requester, outcome);
+    });
+  });
+
   // Un joueur quitte la table de lui-même (ses jetons l'attendent au vestiaire).
   socket.on('player:leave', (ack) => {
     respond(ack, () => {
@@ -411,6 +484,10 @@ server.listen(PORT, () => {
   console.log('  ──────────────────────────────────────────');
   console.log(`  Table (ordinateur) : ${publicUrl ? `${publicUrl}/host` : `http://localhost:${PORT}/host`}`);
   console.log(`  Joueurs (mobiles)  : ${joinUrl}`);
+  console.log('  ──────────────────────────────────────────');
+  // Lien personnel du modérateur : affiché ici seulement, jamais dans le QR code.
+  console.log(`  Ton lien modérateur (ne le partage pas) :`);
+  console.log(`  ${joinUrl}?admin=${encodeURIComponent(ADMIN_KEY)}`);
   console.log('  ──────────────────────────────────────────');
   if (!publicUrl && localIps.length > 1) {
     console.log('  Plusieurs interfaces réseau détectées — si les téléphones');

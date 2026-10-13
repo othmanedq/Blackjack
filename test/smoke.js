@@ -457,6 +457,43 @@ console.log('✓ paris annexes : Perfect Pairs et 21+3');
   console.log('✓ un pré-choix devenu invalide retombe sur un tour manuel sans bloquer la table');
 })();
 
+// ---------------------------------------------------------------- modérateur
+
+(() => {
+  const game = new Game(() => {});
+  game.addPlayer({ token: 'a', name: 'Alice' });
+  game.addPlayer({ token: 'b', name: 'Bob' });
+  game.addPlayer({ token: 'm', name: 'Moi' });
+  assert.strictEqual(game.hostPlayerId(), 'a', 'sans modérateur : le plus ancien');
+  game.setModerator('m');
+  assert.strictEqual(game.hostPlayerId(), 'm', 'le modérateur passe devant, même arrivé en dernier');
+  game.disconnectPlayer('m');
+  assert.strictEqual(game.hostPlayerId(), 'a', 'modérateur absent : le rôle revient au plus ancien');
+  game.addPlayer({ token: 'm', name: 'Moi' });
+  assert.strictEqual(game.hostPlayerId(), 'm', 'il récupère le rôle en revenant');
+  console.log('✓ modérateur : chef de table dès qu’il est connecté');
+
+  // Jetons : ajout et retrait (jamais sous 0), réservés au modérateur.
+  const alice = game.players.get('a');
+  assert.throws(() => game.adjustBalance('a', 'b', 500), /Réservé au modérateur/);
+  assert.strictEqual(game.adjustBalance('m', 'a', 500), 500);
+  assert.strictEqual(alice.balance, 1500);
+  assert.strictEqual(game.adjustBalance('m', 'a', -99999), -1500, 'un retrait s’arrête à 0');
+  assert.strictEqual(alice.balance, 0);
+
+  // Re-cave : le modérateur tranche seul, ou l'active en automatique.
+  game.requestRebuy('a');
+  assert.throws(() => game.decideRebuy('b', true), /Réservé au modérateur/);
+  assert.strictEqual(game.decideRebuy('m', true).outcome, 'granted');
+  assert.strictEqual(alice.balance, 1000);
+  alice.balance = 0;
+  game.setAutoRebuy('m', true);
+  game.requestRebuy('a');
+  assert.strictEqual(alice.balance, 1000, 're-cave automatique, sans vote');
+  assert.strictEqual(game.rebuyRequest, null);
+  console.log('✓ modérateur : jetons ajoutés/retirés, re-caves tranchées ou automatiques');
+})();
+
 // ---------------------------------------------------------- quitter la table
 
 (() => {

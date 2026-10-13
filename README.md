@@ -71,6 +71,16 @@ Cette proposition n'est offerte que dans les 20 minutes suivant la déconnexion,
 
 Toute l'interface utilise des **icônes SVG dessinées à la main** (`public/js/icons.js`), pas d'emojis : le rendu est identique sur tous les téléphones et systèmes, alors qu'un emoji change de dessin d'un appareil à l'autre. Les avatars sont eux aussi des icônes (piques, cœur, carreau, trèfle, couronne, étoile, éclair, gemme), colorées avec la couleur choisie par le joueur. Seules les enseignes imprimées **sur les cartes** (♠ ♥ ♦ ♣) restent des caractères, puisque ce sont les cartes elles-mêmes.
 
+### Modérateur
+
+Le modérateur a tous les droits, en permanence :
+
+- il est **chef de table dès qu'il est connecté**, quel que soit son ordre d'arrivée (choix du mode, cave, lancement des manches, exclusion). S'il s'absente, le rôle revient au joueur arrivé le plus tôt, et lui revient à son retour ;
+- il **ajoute ou retire des jetons** à n'importe quel joueur, à tout moment (bouton bouclier sur son téléphone → « Modération ») ;
+- il **tranche seul** une demande de re-cave (Accorder / Refuser), ou active les **re-caves automatiques** : tout joueur à sec est alors recrédité sans vote.
+
+Pour devenir modérateur : au lancement, le terminal affiche **« Ton lien modérateur »**. Ouvre-le une fois sur ton appareil : le code est retenu, puis retiré de l'adresse. Ce code est généré une fois et gardé dans `.admin-key` (hors git) ; pour en choisir un, lance `ADMIN_KEY=ton-code npm start`. Ne partage pas ce lien : quiconque l'ouvre devient modérateur.
+
 ### Gestion de la table
 
 - **Quitter la table** : un bouton sur le téléphone, disponible tant qu'on n'a pas de mise engagée (deux taps : le second confirme). Les jetons partent au vestiaire : en revenant avec le même appareil, on les retrouve.
