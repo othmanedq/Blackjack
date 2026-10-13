@@ -11,55 +11,119 @@
 .menu-q { width: 1.15rem; text-align: center; font-weight: 800; color: var(--gold-bright); }
 #rules-btn { font-weight: 800; font-size: 1.05rem; }
 
-/* --- table compacte (téléphone) --- */
-.ptable-mini { display: flex; flex-direction: column; gap: 10px; padding: 12px; }
+/* --- table compacte (téléphone) : tapis, tableau au centre, adversaires en tuiles --- */
+.ptable-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 10px 14px;
+  border: none;
+  border-radius: 18px 18px 38% 38% / 18px 18px 12% 12%;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.08), transparent 60%),
+    radial-gradient(ellipse at 50% 30%, #1a6b40 0%, #12512f 55%, #0b3a21 100%);
+  box-shadow: 0 0 0 5px #3b1c0e, 0 0 0 6px rgba(212, 175, 55, 0.5), 0 12px 28px rgba(0, 0, 0, 0.55);
+  margin: 4px 6px 6px;
+  width: calc(100% - 12px);
+}
 .mini-board { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.mini-board .hand.mini { justify-content: center; min-height: 0; gap: 4px; }
-.mini-board .hand.mini .card { --card-w: 40px; --card-h: 56px; }
-.mini-board .hand.mini:empty::before {
-  content: 'Le tableau s’affichera ici';
-  font-size: 0.8rem;
-  color: rgba(245, 233, 200, 0.4);
-  padding: 14px 0;
-}
-.mini-players { display: flex; flex-direction: column; gap: 4px; }
-.mini-row {
+.mini-board .hand.mini { justify-content: center; min-height: 0; gap: 4px; flex-wrap: nowrap; }
+.mini-board .hand.mini .card { --card-w: 46px; --card-h: 64px; }
+.mini-board .hand.mini .card-front .corner { font-size: 13px; }
+.mini-board .hand.mini .card-front .pip { font-size: 26px; }
+.mini-board .hand.mini:empty {
+  width: calc(5 * 46px + 4 * 4px);
+  max-width: 100%;
+  height: 64px;
+  border-radius: 8px;
+  border: 1px dashed rgba(245, 233, 200, 0.22);
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
-  grid-template-areas: "av name stack" "av cards status";
-  column-gap: 8px;
-  row-gap: 2px;
-  align-items: center;
-  padding: 6px 8px;
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.22);
-  border: 1px solid transparent;
+  place-items: center;
 }
-.mini-row.turn { border-color: var(--gold); background: rgba(212, 175, 55, 0.1); }
-.mini-row.folded { opacity: 0.5; }
-.mini-row .t-avatar {
-  grid-area: av;
-  width: 24px;
-  height: 24px;
+.mini-board .hand.mini:empty::before {
+  content: 'Texas Hold’em · No Limit';
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(243, 216, 120, 0.45);
+}
+
+.mini-players { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.mini-players .t-empty { grid-column: 1 / -1; }
+.ptile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 6px 7px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  min-width: 0;
+}
+.ptile.turn { border-color: var(--gold); box-shadow: 0 0 12px rgba(212, 175, 55, 0.35); }
+.ptile.winner { border-color: var(--gold-bright); background: rgba(212, 175, 55, 0.12); }
+.ptile.out { opacity: 0.55; }
+.ptile-head { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.ptile .t-avatar {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   background: var(--p-color, var(--gold));
 }
-.mini-name { grid-area: name; font-weight: 800; font-size: 0.88rem; display: flex; gap: 5px; align-items: center; min-width: 0; overflow: hidden; white-space: nowrap; }
-.mini-cards { grid-area: cards; display: flex; gap: 3px; min-height: 0; }
-.mini-status { grid-area: status; font-size: 0.72rem; font-weight: 700; color: rgba(245, 233, 200, 0.7); text-align: right; }
-.mini-status .up { color: var(--win); }
-.mini-status .down { color: var(--lose); }
-.mini-stack { grid-area: stack; font-size: 0.85rem; font-weight: 700; color: var(--gold-bright); text-align: right; font-variant-numeric: tabular-nums; }
-.mini-bet {
-  margin-left: 4px;
-  padding: 0 6px;
-  border-radius: 999px;
-  background: rgba(212, 175, 55, 0.2);
-  font-size: 0.75rem;
+.ptile-name { font-weight: 800; font-size: 0.76rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.ptile .tag { flex-shrink: 0; }
+.ptile-cards { display: flex; align-items: center; gap: 3px; min-height: 30px; }
+.mc {
+  width: 21px;
+  height: 30px;
+  border-radius: 3px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  background: linear-gradient(160deg, #fdfbf4, #f2ecdc);
+  color: var(--card-black);
+  font-size: 0.7rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
+.mc b { font-size: 0.72rem; }
+.mc.red { color: var(--card-red); }
+.mc.back {
+  border: 1.5px solid #f0e3bb;
+  background: repeating-linear-gradient(45deg, rgba(243, 216, 120, 0.25) 0 2px, transparent 2px 4px), #6b1422;
+}
+.ptile-bet {
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(212, 175, 55, 0.5);
+  color: var(--gold-bright);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+.ptile-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 4px; }
+.ptile-stack { font-size: 0.78rem; font-weight: 700; color: var(--gold-bright); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ptile-foot .up { color: var(--win); font-size: 0.72rem; }
+.ptile-foot .down { color: var(--lose); font-size: 0.72rem; }
+.ptile-status {
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(245, 233, 200, 0.75);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ptile-status.turn, .ptile-status.win { color: var(--gold-bright); }
+.ptile-status.allin { color: #ff9f68; }
 .tag {
   padding: 0 5px;
   border-radius: 4px;
@@ -69,14 +133,6 @@
   color: var(--gold-bright);
 }
 .tag.dealer { background: #f5efe0; color: #1c2430; border-radius: 50%; padding: 0 5px; }
-.card-backs { display: inline-flex; gap: 2px; }
-.card-backs i {
-  width: 12px;
-  height: 17px;
-  border-radius: 2px;
-  border: 1px solid #f0e3bb;
-  background: repeating-linear-gradient(45deg, rgba(243, 216, 120, 0.25) 0 2px, transparent 2px 4px), #6b1422;
-}
 
 /* --- mes cartes (téléphone) --- */
 .my-cards { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px; }
@@ -124,4 +180,15 @@
 
 @media (min-width: 700px) and (min-height: 520px) and (orientation: portrait) {
   .game.has-felt > .actions.poker-actions { grid-template-columns: 1fr 1.25fr 1.25fr; }
+}
+
+.my-position {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: rgba(212, 175, 55, 0.18);
+  color: var(--gold-bright);
 }

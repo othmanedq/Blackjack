@@ -33,6 +33,7 @@ const els = {
   myCardsPanel: $('my-cards-panel'),
   myCards: $('my-cards'),
   myHandLabel: $('my-hand-label'),
+  myPosition: $('my-position'),
   centerMsg: $('center-msg'),
   startBtn: $('start-btn'),
   rebuyBtn: $('rebuy-btn'),
@@ -432,6 +433,11 @@ function render() {
     els.myCardsPanel.classList.toggle('folded', me.folded);
   }
   els.myHandLabel.textContent = hasCards && !me.folded ? you.handLabel || '' : me.folded ? 'Couché' : '';
+  // Ma position à la table (bouton, blindes) : indispensable pour savoir quand je parle.
+  const pos = !me.inHand ? '' : me.seat === state.dealerSeat && me.seat === state.sbSeat ? 'Bouton · petite blinde'
+    : me.seat === state.dealerSeat ? 'Bouton (D)' : me.seat === state.sbSeat ? 'Petite blinde' : me.seat === state.bbSeat ? 'Grosse blinde' : '';
+  els.myPosition.hidden = !pos;
+  els.myPosition.textContent = pos;
 
   renderConfig();
   renderStatus(me);
@@ -464,31 +470,48 @@ function renderConfig() {
 
 const ACTION_TXT = POKER_ACTION_LABELS;
 
+/** Petite carte en texte (tuiles du téléphone) : face visible ou dos. */
+function miniCard(c) {
+  if (!c) return '<span class="mc back"></span>';
+  const red = c.suit === '♥' || c.suit === '♦';
+  return `<span class="mc${red ? ' red' : ''}"><b>${c.rank}</b>${c.suit}</span>`;
+}
+
 function renderMiniTable() {
   syncHand(els.miniBoard, state.board);
   els.miniPot.hidden = !state.pot;
-  els.miniPot.innerHTML = `${iconHtml('chips')} ${fmt.format(state.pot)}`;
-  const rows = state.players.filter((p) => p.id !== token).map((p) => {
+  els.miniPot.innerHTML = `${iconHtml('chips')} Pot ${fmt.format(state.pot)}`;
+  const res = state.results;
+  const tiles = state.players.filter((p) => p.id !== token).map((p) => {
     const tags = [
       p.seat === state.dealerSeat && state.phase !== 'lobby' ? '<span class="tag dealer">D</span>' : '',
       p.seat === state.sbSeat && p.inHand ? '<span class="tag">PB</span>' : '',
       p.seat === state.bbSeat && p.inHand ? '<span class="tag">GB</span>' : '',
     ].join('');
-    const status = p.handLabel && state.phase === 'showdown' ? p.handLabel
-      : p.isTurn ? 'Réfléchit…' : p.allIn ? 'Tapis' : p.lastAction ? ACTION_TXT[p.lastAction] : !p.inHand && state.phase !== 'lobby' ? 'Attend' : '';
-    const net = state.results && state.results.net && state.results.net[p.id];
+    const net = res && res.net && res.net[p.id];
+    let status = '';
+    let cls = '';
+    if (!p.connected) status = 'Déconnecté';
+    else if (p.handLabel && state.phase === 'showdown') { status = p.handLabel; cls = net > 0 ? 'win' : ''; }
+    else if (p.isTurn) { status = 'Réfléchit…'; cls = 'turn'; }
+    else if (p.allIn) { status = 'Tapis'; cls = 'allin'; }
+    else if (p.lastAction) status = ACTION_TXT[p.lastAction] || '';
+    else if (!p.inHand && state.phase !== 'lobby') status = p.stack > 0 ? 'Prochaine main' : 'À sec';
     const cards = p.shownCards
-      ? p.shownCards.map((c) => `<span class="rk-card${/[♥♦]/.test(c.suit) ? ' red' : ''}">${c.rank}${c.suit}</span>`).join('')
-      : p.cardCount && !p.folded ? '<span class="card-backs"><i></i><i></i></span>' : '';
-    return `<div class="mini-row${p.isTurn ? ' turn' : ''}${p.folded ? ' folded' : ''}">
-      <span class="t-avatar" style="--p-color:${esc(p.color)}">${avatarHtml(p.avatar)}</span>
-      <span class="mini-name">${esc(p.name)}${tags}</span>
-      <span class="mini-cards">${cards}</span>
-      <span class="mini-status">${esc(status || '')}${net ? ` <b class="${net > 0 ? 'up' : 'down'}">${net > 0 ? '+' : '−'}${fmt.format(Math.abs(net))}</b>` : ''}</span>
-      <span class="mini-stack">${fmt.format(p.stack)}${p.bet ? ` <b class="mini-bet">${fmt.format(p.bet)}</b>` : ''}</span>
+      ? p.shownCards.map(miniCard).join('')
+      : p.cardCount && !p.folded ? miniCard(null) + miniCard(null) : '';
+    const delta = state.phase === 'showdown' && net ? `<b class="${net > 0 ? 'up' : 'down'}">${net > 0 ? '+' : '−'}${fmt.format(Math.abs(net))}</b>` : '';
+    return `<div class="ptile${p.isTurn ? ' turn' : ''}${p.folded || !p.inHand ? ' out' : ''}${net > 0 ? ' winner' : ''}">
+      <div class="ptile-head">
+        <span class="t-avatar" style="--p-color:${esc(p.color)}">${avatarHtml(p.avatar)}</span>
+        <span class="ptile-name">${esc(p.name)}</span>${tags}
+      </div>
+      <div class="ptile-cards">${cards}${p.bet ? `<span class="ptile-bet">${fmt.format(p.bet)}</span>` : ''}</div>
+      <div class="ptile-foot"><span class="ptile-stack">${iconHtml('chip')} ${fmt.format(p.stack)}</span>${delta}</div>
+      ${status ? `<div class="ptile-status ${cls}">${esc(status)}</div>` : ''}
     </div>`;
   }).join('') || '<p class="t-empty">En attente d’autres joueurs…</p>';
-  if (els.miniPlayers.innerHTML !== rows) els.miniPlayers.innerHTML = rows;
+  if (els.miniPlayers.innerHTML !== tiles) els.miniPlayers.innerHTML = tiles;
 }
 
 function renderStatus(me) {
@@ -526,6 +549,8 @@ function renderStatus(me) {
 function renderActions(me) {
   const you = state.you;
   const myTurn = !!(you && me.isTurn);
+  // Boutons seulement quand c'est à moi : le reste du temps, la place va à la table.
+  els.actions.hidden = !myTurn;
   const [foldBtn] = els.actions.querySelectorAll('[data-act="fold"]');
   foldBtn.disabled = !myTurn;
   els.callBtn.disabled = !myTurn;
