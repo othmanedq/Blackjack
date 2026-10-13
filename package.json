@@ -1,13 +1,13 @@
 {
   "name": "blackjack-royale",
   "version": "1.0.0",
-  "description": "Jeu de Blackjack multijoueur local en temps réel — l'ordinateur est la table, les téléphones sont les manettes.",
+  "description": "Blackjack et poker (Texas Hold'em) multijoueur local en temps réel — l'ordinateur est la table, les téléphones sont les manettes.",
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test": "node test/smoke.js"
+    "test": "node test/smoke.js && node test/poker-hand.test.js && node test/poker.test.js"
   },
   "license": "MIT",
   "dependencies": {
