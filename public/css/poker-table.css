@@ -1,0 +1,315 @@
+/* ============================================================
+   TABLE DE POKER — ovale de feutre bordé de cuir, 8 places autour,
+   tableau et pot au centre. Tailles en cqw (largeur de .ptable-wrap).
+   ============================================================ */
+
+.ptable-root {
+  --table-max-h: 80vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 0;
+}
+
+.ptable-wrap {
+  container-type: inline-size;
+  position: relative;
+  /* Hauteur ≈ 0,62 × largeur (ovale + plaques qui débordent sur le bord). */
+  width: min(100%, calc(var(--table-max-h) / 0.62), 1700px);
+  padding: 6.5cqw 8cqw 7.5cqw;
+}
+
+/* ----------------------------- boudin + feutre ----------------------------- */
+
+.prail {
+  position: relative;
+  aspect-ratio: 2.1 / 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse at 50% 50%, transparent 60%, rgba(0, 0, 0, 0.35) 100%),
+    linear-gradient(180deg, #5a2e18 0%, #3b1c0e 55%, #24110a 100%);
+  box-shadow:
+    0 2.4cqw 5cqw rgba(0, 0, 0, 0.7),
+    inset 0 0.4cqw 0.8cqw rgba(255, 210, 160, 0.14),
+    inset 0 -0.4cqw 1cqw rgba(0, 0, 0, 0.6);
+}
+.prail::after {
+  content: '';
+  position: absolute;
+  inset: 1.55cqw;
+  border-radius: 50%;
+  border: 0.18cqw solid rgba(212, 175, 55, 0.55);
+  pointer-events: none;
+}
+
+.pfelt {
+  position: absolute;
+  inset: 1.8cqw;
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(255, 255, 255, 0.08), transparent 60%),
+    radial-gradient(ellipse at 50% 50%, #1a6b40 0%, #12512f 50%, #0b3a21 85%, #082c19 100%);
+  box-shadow: inset 0 0.8cqw 2.4cqw rgba(0, 0, 0, 0.5);
+}
+.pfelt::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.55;
+  background-image:
+    repeating-radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 3px),
+    repeating-radial-gradient(circle at 70% 60%, rgba(0, 0, 0, 0.05) 0 1px, transparent 1px 2px);
+}
+/* Ligne de mise imprimée sur le tapis */
+.pfelt::after {
+  content: '';
+  position: absolute;
+  inset: 17%;
+  border-radius: 50%;
+  border: 0.14cqw solid rgba(243, 216, 120, 0.22);
+  pointer-events: none;
+}
+
+
+/* --------------------------------- centre --------------------------------- */
+
+.pcenter {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.7cqw;
+  width: 40%;
+  text-align: center;
+}
+.pphase {
+  font-size: max(9px, 0.8cqw);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(245, 233, 200, 0.6);
+  min-height: 1.2em;
+}
+.pboard { min-height: 0; gap: 0.6cqw; }
+.pboard .card { --card-w: 4.1cqw; --card-h: 5.8cqw; }
+/* Emplacement du tableau avant le flop, avec le nom du jeu imprimé */
+.pboard.empty {
+  width: calc(5 * 4.1cqw + 4 * 0.6cqw);
+  height: 5.8cqw;
+  border-radius: 0.6cqw;
+  border: 0.14cqw dashed rgba(245, 233, 200, 0.18);
+}
+.pboard.empty::before {
+  content: 'Texas Hold’em · No Limit';
+  font-family: var(--font-display);
+  font-size: max(9px, 1cqw);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(243, 216, 120, 0.4);
+}
+.ppot {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.25em 0.9em;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(212, 175, 55, 0.5);
+  color: var(--gold-bright);
+  font-weight: 800;
+  font-size: max(11px, 1.15cqw);
+  font-variant-numeric: tabular-nums;
+}
+.pmsg {
+  font-family: var(--font-display);
+  font-size: max(11px, 1.15cqw);
+  color: var(--gold-bright);
+  text-shadow: 0 0.15cqw 0.6cqw rgba(0, 0, 0, 0.7);
+  min-height: 1.3em;
+}
+.presults-timer { width: 60%; height: max(3px, 0.3cqw); }
+
+/* Cartes de la combinaison gagnante */
+.card.in-best .card-front { box-shadow: 0 0 0 0.2cqw var(--gold-bright), 0 0 1.4cqw rgba(243, 216, 120, 0.7); }
+
+/* --------------------------------- places --------------------------------- */
+
+.pseats { position: absolute; inset: 0; }
+.pseat > * { position: absolute; transform: translate(-50%, -50%); }
+
+.pseat-plate {
+  z-index: 3;
+  width: 11.5cqw;
+  padding: 0.5cqw 0.65cqw 0.6cqw;
+  border-radius: 0.9cqw;
+  background: linear-gradient(180deg, rgba(10, 22, 15, 0.94), rgba(5, 12, 8, 0.94));
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-top: 0.25cqw solid var(--p-color, var(--gold));
+  box-shadow: 0 0.5cqw 1.4cqw rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3cqw;
+  --bubble: 4.4cqw;
+  transition: border-color 0.25s, box-shadow 0.25s, opacity 0.25s;
+}
+.pseat-plate .reaction-bubble { top: -2.4cqw; right: -1.6cqw; }
+.pseat.empty > :not(.pseat-empty) { display: none; }
+.pseat:not(.empty) .pseat-empty { display: none; }
+.pseat-empty {
+  width: 6cqw;
+  height: 6cqw;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 0.14cqw dashed rgba(245, 233, 200, 0.25);
+  color: rgba(245, 233, 200, 0.35);
+  font-size: max(8px, 0.7cqw);
+  text-align: center;
+}
+
+.pseat.is-turn .pseat-plate {
+  border-color: var(--gold);
+  box-shadow: 0 0 2cqw rgba(212, 175, 55, 0.45), 0 0.5cqw 1.4cqw rgba(0, 0, 0, 0.55);
+}
+.pseat.is-me .pseat-plate { border-color: rgba(243, 216, 120, 0.75); }
+.pseat.winner .pseat-plate {
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 2.4cqw rgba(243, 216, 120, 0.6);
+}
+.pseat.folded .pseat-plate,
+.pseat.out .pseat-plate { opacity: 0.55; }
+.pseat.disconnected .pseat-plate { opacity: 0.4; filter: grayscale(0.7); }
+
+.pseat .seat-head { display: flex; align-items: center; gap: 0.4cqw; max-width: 100%; }
+.pseat .seat-avatar {
+  width: 1.8cqw;
+  height: 1.8cqw;
+  min-width: 16px;
+  min-height: 16px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: max(9px, 1cqw);
+  background: var(--p-color, var(--gold));
+}
+.pseat .seat-name {
+  font-weight: 800;
+  font-size: max(10px, 1cqw);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pseat .seat-balance {
+  font-size: max(10px, 0.95cqw);
+  font-weight: 700;
+  color: var(--gold-bright);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.pseat .delta { font-size: 0.85em; margin-left: 0.25em; }
+.prebuys { font-size: 0.78em; color: rgba(245, 233, 200, 0.55); margin-left: 0.3em; }
+.pseat-action {
+  font-size: max(8px, 0.72cqw);
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(245, 233, 200, 0.75);
+  text-align: center;
+}
+.pseat-action.turn { color: var(--gold-bright); }
+.pseat-action.allin { color: #ff9f68; }
+.pseat-action.win { color: var(--gold-bright); }
+.pseat .seat-timer { width: 100%; height: max(3px, 0.3cqw); }
+.pseat .seat-me {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -60%);
+  padding: 0.05cqw 0.6cqw;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+  color: #14200f;
+  font-size: max(8px, 0.6cqw);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.pblind {
+  position: absolute;
+  top: 0.35cqw;
+  right: 0.45cqw;
+  padding: 0 0.35cqw;
+  border-radius: 0.4cqw;
+  background: rgba(212, 175, 55, 0.2);
+  color: var(--gold-bright);
+  font-size: max(7px, 0.6cqw);
+  font-weight: 800;
+}
+
+/* Cartes d'un joueur, posées devant lui */
+.pseat-cards { z-index: 2; display: flex; min-height: 0; gap: 0; }
+.pseat-cards .card { --card-w: 3.3cqw; --card-h: 4.6cqw; }
+.pseat-cards .card + .card { margin-left: -1.2cqw; transform: rotate(6deg); }
+.pseat.is-me .pseat-cards .card { --card-w: 4.1cqw; --card-h: 5.8cqw; }
+
+/* Mise du tour en cours, vers le centre */
+.pseat-bet {
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.35cqw;
+}
+.pseat-bet .chip-stack.mini { width: 2cqw; height: 2cqw; position: relative; }
+.pseat-bet .stack-chip {
+  position: absolute;
+  left: 0;
+  bottom: calc(var(--n) * 0.24cqw);
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: var(--chip-color);
+  border: 0.12cqw dashed rgba(255, 255, 255, 0.75);
+  box-shadow: inset 0 0 0 0.25cqw rgba(255, 255, 255, 0.18), 0 0.15cqw 0 rgba(0, 0, 0, 0.45);
+}
+.pbet-amount {
+  padding: 0.05cqw 0.45cqw;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  color: var(--gold-bright);
+  font-size: max(9px, 0.8cqw);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Bouton du donneur */
+.pdealer {
+  position: absolute;
+  z-index: 4;
+  width: 2.3cqw;
+  height: 2.3cqw;
+  min-width: 18px;
+  min-height: 18px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 35% 30%, #ffffff, #e6dfc8);
+  color: #1c2430;
+  font-weight: 800;
+  font-size: max(9px, 1cqw);
+  box-shadow: 0 0.2cqw 0.5cqw rgba(0, 0, 0, 0.6), inset 0 0 0 0.18cqw rgba(0, 0, 0, 0.15);
+  transition: left 0.5s ease, top 0.5s ease;
+}
+
+/* Petite table (tablette, colonne de la vue joueur) : places un peu plus grosses */
+@container (max-width: 820px) {
+  .pseat-plate, .pseat-cards, .pseat-bet { zoom: 1.12; }
+}

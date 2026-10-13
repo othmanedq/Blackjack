@@ -1201,3 +1201,5 @@ html, body {
   .game-head > .react-btn:not(.menu-btn) { display: none; }
   .menu-btn { display: grid; }
 }
+
+.switch-game { display: block; text-align: center; font-size: 0.85rem; color: rgba(245, 233, 200, 0.6); margin-top: 4px; }

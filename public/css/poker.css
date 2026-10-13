@@ -1,0 +1,127 @@
+/* ================= Vue joueur du poker (en plus de player.css) ================= */
+
+.switch-game {
+  text-align: center;
+  font-size: 0.85rem;
+  color: rgba(245, 233, 200, 0.6);
+  margin-top: 4px;
+}
+
+/* Lien « changer de table » aussi sur l'accueil du blackjack */
+.menu-q { width: 1.15rem; text-align: center; font-weight: 800; color: var(--gold-bright); }
+#rules-btn { font-weight: 800; font-size: 1.05rem; }
+
+/* --- table compacte (téléphone) --- */
+.ptable-mini { display: flex; flex-direction: column; gap: 10px; padding: 12px; }
+.mini-board { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.mini-board .hand.mini { justify-content: center; min-height: 0; gap: 4px; }
+.mini-board .hand.mini .card { --card-w: 40px; --card-h: 56px; }
+.mini-board .hand.mini:empty::before {
+  content: 'Le tableau s’affichera ici';
+  font-size: 0.8rem;
+  color: rgba(245, 233, 200, 0.4);
+  padding: 14px 0;
+}
+.mini-players { display: flex; flex-direction: column; gap: 4px; }
+.mini-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  grid-template-areas: "av name stack" "av cards status";
+  column-gap: 8px;
+  row-gap: 2px;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid transparent;
+}
+.mini-row.turn { border-color: var(--gold); background: rgba(212, 175, 55, 0.1); }
+.mini-row.folded { opacity: 0.5; }
+.mini-row .t-avatar {
+  grid-area: av;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+  background: var(--p-color, var(--gold));
+}
+.mini-name { grid-area: name; font-weight: 800; font-size: 0.88rem; display: flex; gap: 5px; align-items: center; min-width: 0; overflow: hidden; white-space: nowrap; }
+.mini-cards { grid-area: cards; display: flex; gap: 3px; min-height: 0; }
+.mini-status { grid-area: status; font-size: 0.72rem; font-weight: 700; color: rgba(245, 233, 200, 0.7); text-align: right; }
+.mini-status .up { color: var(--win); }
+.mini-status .down { color: var(--lose); }
+.mini-stack { grid-area: stack; font-size: 0.85rem; font-weight: 700; color: var(--gold-bright); text-align: right; font-variant-numeric: tabular-nums; }
+.mini-bet {
+  margin-left: 4px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(212, 175, 55, 0.2);
+  font-size: 0.75rem;
+}
+.tag {
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  background: rgba(212, 175, 55, 0.2);
+  color: var(--gold-bright);
+}
+.tag.dealer { background: #f5efe0; color: #1c2430; border-radius: 50%; padding: 0 5px; }
+.card-backs { display: inline-flex; gap: 2px; }
+.card-backs i {
+  width: 12px;
+  height: 17px;
+  border-radius: 2px;
+  border: 1px solid #f0e3bb;
+  background: repeating-linear-gradient(45deg, rgba(243, 216, 120, 0.25) 0 2px, transparent 2px 4px), #6b1422;
+}
+
+/* --- mes cartes (téléphone) --- */
+.my-cards { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px; }
+.my-cards .hand { min-height: 0; gap: 10px; }
+.my-cards .card { --card-w: 74px; --card-h: 104px; }
+.my-cards.folded .hand { opacity: 0.4; filter: grayscale(0.6); }
+.my-hand-label {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  color: var(--gold-bright);
+  min-height: 1.3em;
+}
+
+/* --- relance --- */
+.raise-panel {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  background: linear-gradient(180deg, rgba(20, 45, 30, 0.95), rgba(7, 19, 13, 0.95));
+  color: var(--cream);
+  font-size: 1rem;
+}
+.raise-presets { display: grid; grid-template-columns: repeat(auto-fit, minmax(60px, 1fr)); gap: 6px; }
+.raise-presets .stake-btn { padding: 8px 4px; font-size: 0.85rem; }
+.raise-row { display: flex; align-items: center; gap: 12px; }
+.raise-row input[type="range"] { flex: 1; accent-color: var(--gold); height: 28px; }
+.raise-amount {
+  min-width: 72px;
+  text-align: right;
+  font-weight: 800;
+  font-size: 1.15rem;
+  color: var(--gold-bright);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- boutons d'action : 3 colonnes --- */
+.poker-actions { grid-template-columns: 1fr 1.25fr 1.25fr; }
+.poker-actions .action-btn { font-size: 1.05rem; padding: 16px 6px; }
+.poker-actions .action-btn.discouraged:not(:disabled) { opacity: 0.55; }
+
+@media (min-width: 700px) and (min-height: 520px) and (orientation: portrait) {
+  .game.has-felt > .actions.poker-actions { grid-template-columns: 1fr 1.25fr 1.25fr; }
+}

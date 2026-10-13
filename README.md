@@ -2,6 +2,27 @@
 
 Jeu de **Blackjack multijoueur local en temps réel** : l'ordinateur est la table de casino, les smartphones sont les manettes. Tout se joue sur le même réseau Wi-Fi, sans internet.
 
+## Deux tables : blackjack et poker
+
+Le serveur ouvre **deux tables en même temps**. La page d'accueil (`/`) propose de choisir sa table et affiche combien de joueurs y sont assis. Les **soldes sont séparés** : ce qu'on gagne au blackjack ne se joue pas au poker.
+
+| | Blackjack | Poker |
+|---|---|---|
+| Joueurs (téléphones) | `/blackjack` | `/poker` |
+| Écran de la table | `/host` | `/poker/host` |
+| Places | 7 | 8 |
+
+### Poker : Texas Hold'em No Limit
+
+- **Avant la première main**, le chef de table (ou l'écran de la table) choisit le tapis de départ (500 à 10 000) et les blindes (de 1/2 à 100/200). La partie se lance, puis les mains s'enchaînent toutes seules.
+- **Règles** : bouton tournant, petite et grosse blinde (en tête-à-tête, le bouton paie la petite blinde et parle en premier avant le flop), une carte brûlée avant chaque tirage, relance minimale égale à la dernière relance complète, un tapis trop court pour une relance complète ne rouvre pas les enchères, pots annexes, mise non suivie rendue, pot partagé à égalité.
+- **Sur le téléphone** : tes deux cartes en grand avec la force de ta main en direct (« Paire de dames »), la table en version compacte, et les actions Se coucher / Checker ou Suivre / Relancer. La relance propose Min, ½ pot, Pot et Tapis, ou un curseur.
+- **Sur ordinateur ou tablette** : la table ovale complète, ta place toujours en bas.
+- **Bouton « ? »** : le classement des mains, de la quinte flush royale à la carte haute.
+- **Temps de parole** : 30 s, puis check si possible, sinon on se couche. Un joueur déconnecté ne bloque jamais la table.
+- **À sec** : bouton « Se recaver » entre deux mains ; le nombre de recaves est affiché sur la plaque (↻2).
+- Chat, réactions, modérateur (ajout/retrait de jetons), exclusion et départ fonctionnent comme au blackjack, sur une table séparée.
+
 ## Démarrage rapide
 
 ```bash
@@ -134,10 +155,13 @@ Un joueur qui se déconnecte pendant un vote ne le bloque pas : la majorité se 
 ```
 Blackjack/
 ├── server.js              # Serveur Express + Socket.io, IP locale, QR code
+├── poker-server.js        # Table de poker (canal Socket.io /poker)
 ├── asset/                 # Visages (réactions des joueurs, croupier)
 ├── game/
 │   └── blackjack.js       # Logique de jeu autoritaire (état, tours, paiements)
 │   └── chat.js            # Chat de la table (nettoyage, anti-flood, historique)
+│   ├── poker.js           # Moteur Texas Hold'em No Limit (enchères, pots annexes, abattage)
+│   └── poker-hand.js      # Évaluation des mains de poker (meilleure main de 5 parmi 7)
 ├── public/
 │   ├── host.html          # Vue Table (ordinateur / croupier)
 │   ├── player.html        # Vue Joueur (smartphone)

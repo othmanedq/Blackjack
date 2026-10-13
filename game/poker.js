@@ -16,7 +16,7 @@
  *  - Tout le monde à tapis : les cartes restantes sont retournées une à une
  */
 
-const { bestHand, compareHands } = require('./poker-hand');
+const { bestHand, compareHands, describeHand, RANK_VALUE } = require('./poker-hand');
 
 const SUITS = ['♠', '♥', '♦', '♣'];
 const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
@@ -250,6 +250,17 @@ class PokerGame {
     target.stack = Math.min(10000000, Math.max(0, before + d));
     this.push();
     return target.stack - before;
+  }
+
+  /** Exclusion par le chef, entre deux mains : le joueur repart sans son tapis. */
+  kick(chefToken, targetToken) {
+    this.assertChef(chefToken);
+    if (this.isBetting()) throw new Error('Exclusion possible seulement entre deux mains.');
+    if (chefToken === targetToken) throw new Error('Tu ne peux pas t’exclure toi-même.');
+    if (!this.players.has(targetToken)) throw new Error('Ce joueur n’est plus à la table.');
+    this.removePlayer(targetToken, { keepStack: false });
+    this.parked.delete(targetToken);
+    this.push();
   }
 
   // ------------------------------------------------------------------- mains
@@ -702,6 +713,7 @@ class PokerGame {
             canRaise: !me.raiseLocked && me.stack > toCall,
             minRaiseTo: Math.min(me.bet + me.stack, this.currentBet + this.minRaise),
             maxRaiseTo: me.bet + me.stack,
+            handLabel: this.currentHandLabel(me),
           }
         : null,
       players: [...this.players.values()]
@@ -728,6 +740,15 @@ class PokerGame {
           bestCards: shown.has(p.id) ? shown.get(p.id).best : null,
         })),
     };
+  }
+
+  /** Force de la main d'un joueur avec le tableau actuel (« Paire de dames »…). */
+  currentHandLabel(p) {
+    if (p.holeCards.length !== 2) return null;
+    if (this.board.length >= 3) return bestHand([...p.holeCards, ...this.board]).label;
+    // Préflop : paire servie ou carte haute.
+    const [a, b] = p.holeCards.map((c) => RANK_VALUE[c.rank]);
+    return a === b ? describeHand([1, a]) : describeHand([0, Math.max(a, b)]);
   }
 
   push() {

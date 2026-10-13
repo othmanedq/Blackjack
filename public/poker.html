@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0b2818" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23d4af37' d='M12 2.2L19.8 12 12 21.8 4.2 12z'/%3E%3C/svg%3E" />
+  <title>Poker Royale — Joueur</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;800&family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/shared.css" />
+  <link rel="stylesheet" href="/css/poker-table.css" />
+  <link rel="stylesheet" href="/css/player.css" />
+  <link rel="stylesheet" href="/css/poker.css" />
+</head>
+<body>
+  <!-- ================== ACCUEIL ================== -->
+  <section class="screen" id="screen-lobby">
+    <h1 class="display"><span class="gold-text">Poker Royale</span></h1>
+    <p class="subtitle">Texas Hold’em · No Limit</p>
+    <form id="join-form">
+      <label class="field-label" for="name-input">Ton pseudo</label>
+      <input id="name-input" type="text" maxlength="12" placeholder="Ex. Full aux As" autocomplete="nickname" required />
+      <label class="field-label">Ton avatar</label>
+      <div class="picker" id="avatar-picker"></div>
+      <label class="field-label">Ta couleur</label>
+      <div class="picker" id="color-picker"></div>
+      <button type="submit" class="cta big"><i data-icon="play"></i> S’asseoir à la table</button>
+      <p class="form-error" id="join-error"></p>
+      <a class="switch-game" href="/">← Changer de table</a>
+    </form>
+  </section>
+
+  <div class="modal-overlay" id="resume-modal" hidden>
+    <div class="modal-card">
+      <h2 class="display gold-text">On dirait toi</h2>
+      <p class="modal-text">Un joueur avec cet appareil s’était déconnecté sans quitter la table :</p>
+      <div class="resume-identity">
+        <span class="resume-avatar" id="resume-avatar"></span>
+        <span class="resume-name" id="resume-name"></span>
+        <span class="resume-balance"><i data-icon="chip"></i> <span id="resume-balance">0</span></span>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="cta" id="resume-yes">Reprendre cette partie</button>
+        <button type="button" class="ghost-btn" id="resume-no">Non, nouveau joueur</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================== JEU ================== -->
+  <section class="screen game" id="screen-game" hidden>
+    <!-- Ordinateur / tablette : la table ovale, à côté des commandes -->
+    <div class="felt-area" id="felt-area" hidden></div>
+
+    <header class="game-head">
+      <span class="me-avatar" id="me-avatar"></span>
+      <span class="me-name">
+        <i class="chef-crown" id="me-crown" data-icon="crown" hidden></i>
+        <span id="me-name-text"></span>
+      </span>
+      <span class="me-balance"><i data-icon="chip"></i> <span id="me-stack">0</span></span>
+      <button type="button" class="react-btn mod-btn" id="mod-btn" aria-label="Modération" hidden><i data-icon="shield"></i></button>
+      <button type="button" class="react-btn" id="rules-btn" aria-label="Classement des mains">?</button>
+      <button type="button" class="react-btn chat-btn" id="chat-btn" aria-label="Ouvrir le chat">
+        <i data-icon="chat"></i><span class="chat-badge" id="chat-badge" hidden>0</span>
+      </button>
+      <button type="button" class="react-btn" id="react-btn" aria-label="Réagir"><i data-icon="smile"></i></button>
+      <button type="button" class="react-btn menu-btn" id="menu-btn" aria-label="Menu" aria-haspopup="menu">
+        <i data-icon="more"></i><span class="chat-badge" id="menu-badge" hidden>0</span>
+      </button>
+      <div class="head-menu" id="head-menu" role="menu" hidden>
+        <button type="button" role="menuitem" data-menu="chat"><i data-icon="chat"></i> Chat <span class="menu-count" id="menu-chat-count" hidden></span></button>
+        <button type="button" role="menuitem" data-menu="react"><i data-icon="smile"></i> Réactions</button>
+        <button type="button" role="menuitem" data-menu="rules"><span class="menu-q">?</span> Classement des mains</button>
+        <button type="button" role="menuitem" data-menu="mod" id="menu-mod" hidden><i data-icon="shield"></i> Modération</button>
+      </div>
+    </header>
+
+    <div class="react-tray" id="react-tray" hidden></div>
+
+    <div class="status-line">
+      <div class="status-row"><span class="badge waiting" id="me-status">En attente</span></div>
+      <div class="timerbar" id="me-timer" hidden><i></i></div>
+    </div>
+
+    <main class="game-scroll">
+      <!-- Réglages avant la première main (chef de table) -->
+      <div class="panel" id="config-panel" hidden>
+        <p class="panel-title">Tapis de départ — pour tous</p>
+        <div class="stake-row" id="stack-options"></div>
+        <p class="panel-title">Blindes</p>
+        <div class="stake-row" id="blind-options"></div>
+        <p class="config-hint" id="config-hint"></p>
+      </div>
+
+      <!-- Téléphone : la table en version compacte -->
+      <div class="panel ptable-mini" id="mini-table">
+        <div class="mini-board">
+          <div class="hand mini" id="mini-board"></div>
+          <span class="ppot" id="mini-pot" hidden></span>
+        </div>
+        <div class="mini-players" id="mini-players"></div>
+      </div>
+
+      <!-- Téléphone : mes cartes en grand -->
+      <div class="panel my-cards" id="my-cards-panel" hidden>
+        <div class="hand" id="my-cards"></div>
+        <p class="my-hand-label" id="my-hand-label"></p>
+      </div>
+
+      <div class="center-msg" id="center-msg"></div>
+
+      <button class="cta big" id="start-btn" hidden><i data-icon="play"></i> Lancer la partie</button>
+      <button class="cta" id="rebuy-btn" hidden></button>
+      <div class="table-actions">
+        <button type="button" class="ghost-btn danger" id="kick-btn" hidden><i data-icon="userX"></i> Exclure un joueur</button>
+        <button type="button" class="ghost-btn" id="leave-btn"><i data-icon="logout"></i> <span id="leave-label">Quitter la table</span></button>
+      </div>
+    </main>
+
+    <!-- Relance : montant à régler -->
+    <div class="raise-panel preset-hint" id="raise-panel" hidden>
+      <div class="raise-presets" id="raise-presets"></div>
+      <div class="raise-row">
+        <input type="range" id="raise-range" min="0" max="100" step="1" aria-label="Montant de la relance" />
+        <span class="raise-amount" id="raise-amount">0</span>
+      </div>
+    </div>
+
+    <footer class="actions poker-actions" id="actions">
+      <button class="action-btn stand" data-act="fold">Se coucher</button>
+      <button class="action-btn hit" data-act="call" id="call-btn">Checker</button>
+      <button class="action-btn double" data-act="raise" id="raise-btn">Relancer</button>
+    </footer>
+  </section>
+
+  <!-- Classement des mains -->
+  <div class="rules-overlay" id="rules" hidden>
+    <div class="rules-card">
+      <button type="button" class="modal-close" id="rules-close" aria-label="Fermer"><i data-icon="cross"></i></button>
+      <h2 class="display gold-text">Classement des mains</h2>
+      <div id="rules-body"></div>
+    </div>
+  </div>
+
+  <!-- Modération -->
+  <div class="modal-overlay" id="mod-modal" hidden>
+    <div class="modal-card mod-card">
+      <button type="button" class="modal-close" id="mod-close" aria-label="Fermer"><i data-icon="cross"></i></button>
+      <h2 class="display gold-text">Modération</h2>
+      <p class="mod-label">Jetons : montant par clic</p>
+      <div class="mod-steps" id="mod-steps"></div>
+      <div class="mod-list" id="mod-list"></div>
+    </div>
+  </div>
+
+  <!-- Exclusion (chef de table) -->
+  <div class="modal-overlay" id="kick-modal" hidden>
+    <div class="modal-card">
+      <button type="button" class="modal-close" id="kick-close" aria-label="Fermer"><i data-icon="cross"></i></button>
+      <h2 class="display gold-text">Exclure un joueur</h2>
+      <p class="modal-text">Il pourra revenir, mais sans son tapis.</p>
+      <div class="pm-list" id="kick-list"></div>
+    </div>
+  </div>
+
+  <button type="button" class="chat-peek" id="chat-peek" aria-label="Ouvrir le chat" hidden></button>
+  <div class="chat-sheet" id="chat-sheet" hidden>
+    <div class="chat-head">
+      <span class="chat-title"><i data-icon="chat"></i> Chat du poker</span>
+      <button type="button" class="modal-close chat-close" id="chat-close" aria-label="Fermer le chat"><i data-icon="cross"></i></button>
+    </div>
+    <div class="chat-list" id="chat-list"><p class="chat-empty" id="chat-empty">Aucun message pour l’instant.</p></div>
+    <form class="chat-form" id="chat-form" autocomplete="off">
+      <input id="chat-input" type="text" maxlength="200" placeholder="Écris un message…" enterkeyhint="send" />
+      <button type="submit" class="chat-send" aria-label="Envoyer"><i data-icon="send"></i></button>
+    </form>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/icons.js"></script>
+  <script src="/js/shared.js"></script>
+  <script src="/js/poker-table.js"></script>
+  <script src="/js/poker.js"></script>
+</body>
+</html>

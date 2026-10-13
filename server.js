@@ -10,6 +10,7 @@ const { Server } = require('socket.io');
 const QRCode = require('qrcode');
 const { Game } = require('./game/blackjack');
 const { Chat } = require('./game/chat');
+const { setupPoker } = require('./poker-server');
 
 const PORT = process.env.PORT || 3000;
 
@@ -55,10 +56,20 @@ function isAdminKey(candidate) {
 const REACTIONS = ['laughing', 'cool', 'smirk', 'shocked', 'crossed', 'sad', 'angry', 'neutral'];
 const REACTION_COOLDOWN_MS = 1500;
 
-// Les téléphones scannent le QR code et tombent sur la vue joueur.
-app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'player.html')));
-// L'ordinateur (table de casino) ouvre /host.
+// Accueil (/) : public/index.html, servi par express.static — on y choisit sa table.
+// Blackjack : vue joueur et écran de la table (/host, adresse historique).
+app.get('/blackjack', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'player.html')));
 app.get('/host', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'host.html')));
+// Poker : vue joueur et écran de la table.
+app.get('/poker', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'poker.html')));
+app.get('/poker/host', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'poker-host.html')));
+// Occupation des deux tables, pour la page d'accueil.
+app.get('/api/tables', (_req, res) => {
+  res.json({
+    blackjack: { players: game.players.size, max: game.opts.maxPlayers },
+    poker: { players: poker.playerCount(), max: poker.game.opts.maxPlayers },
+  });
+});
 
 /**
  * Toutes les adresses IPv4 non internes, triées de la plus probable à la
@@ -156,20 +167,31 @@ function clientIp(socket) {
   return addr.replace(/^::ffff:/, '');
 }
 
-/** QR code + adresse de connexion, vers un écran table ou toute la salle 'hosts'. */
-async function sendHostInfo(target) {
-  let qrDataUrl = null;
+/** QR code d'une adresse (null si la génération échoue : l'adresse texte reste affichée). */
+async function qrFor(url) {
   try {
-    qrDataUrl = await QRCode.toDataURL(joinUrl, {
-      margin: 1,
-      width: 480,
-      color: { dark: '#0b1f16', light: '#f5e9c8' },
-    });
-  } catch (err) {
-    // Sans QR code, l'adresse texte reste affichée.
+    return await QRCode.toDataURL(url, { margin: 1, width: 480, color: { dark: '#0b1f16', light: '#f5e9c8' } });
+  } catch {
+    return null;
   }
-  target.emit('host:info', { ip: localIp, port: PORT, url: joinUrl, qrDataUrl });
 }
+
+/** QR code + adresse de la table de blackjack, vers un écran table ou toute la salle 'hosts'. */
+async function sendHostInfo(target) {
+  const url = `${joinUrl}blackjack`;
+  target.emit('host:info', { ip: localIp, port: PORT, url, qrDataUrl: await qrFor(url) });
+}
+
+// Table de poker : canal séparé (/poker), mêmes outils.
+const poker = setupPoker({
+  io,
+  isAdminKey,
+  joinUrl: () => joinUrl,
+  qrFor,
+  clientIp,
+  reactions: REACTIONS,
+  reactionCooldownMs: REACTION_COOLDOWN_MS,
+});
 
 // Changement de réseau en cours de partie : on met à jour le QR code des écrans table.
 if (!publicUrl && !process.env.HOST_IP) {
@@ -179,6 +201,7 @@ if (!publicUrl && !process.env.HOST_IP) {
     ({ localIps, localIp, joinUrl } = next);
     console.log(`  Réseau changé — nouvelle adresse joueurs : ${joinUrl}`);
     sendHostInfo(io.to('hosts'));
+    poker.refreshHostInfo();
   }, 5000).unref();
 }
 
@@ -492,7 +515,8 @@ server.listen(PORT, () => {
   console.log('  ♠ ♥  BLACKJACK ROYALE  ♦ ♣');
   console.log('  ──────────────────────────────────────────');
   console.log(`  Table (ordinateur) : ${publicUrl ? `${publicUrl}/host` : `http://localhost:${PORT}/host`}`);
-  console.log(`  Joueurs (mobiles)  : ${joinUrl}`);
+  console.log(`  Joueurs (mobiles)  : ${joinUrl}   (choix blackjack / poker)`);
+  console.log(`  Table de poker     : ${publicUrl ? `${publicUrl}/poker/host` : `http://localhost:${PORT}/poker/host`}`);
   console.log('  ──────────────────────────────────────────');
   // Lien personnel du modérateur : affiché ici seulement, jamais dans le QR code.
   console.log(`  Ton lien modérateur (ne le partage pas) :`);

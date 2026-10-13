@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b2818" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23d4af37' d='M12 2.6C9 6.7 4.4 9.2 4.4 13.3a4.6 4.6 0 0 0 6.7 4.1c-.3 1.8-1.2 2.9-2.6 3.6h7c-1.4-.7-2.3-1.8-2.6-3.6a4.6 4.6 0 0 0 6.7-4.1c0-4.1-4.6-6.6-7.6-10.7z'/%3E%3C/svg%3E" />
+  <title>Royale — Choisis ta table</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;800&family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/shared.css" />
+  <style>
+    body { min-height: 100dvh; display: grid; place-items: center; padding: 24px 16px; }
+    main { position: relative; z-index: 1; width: min(760px, 100%); text-align: center; }
+    h1 { font-size: clamp(2rem, 7vw, 3rem); margin-bottom: 6px; }
+    .subtitle { color: rgba(245, 233, 200, 0.7); margin-bottom: 28px; font-size: 0.95rem; }
+    .tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+    .table-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding: 26px 20px 22px;
+      border-radius: 20px;
+      border: 1px solid rgba(212, 175, 55, 0.45);
+      background:
+        radial-gradient(ellipse at 50% 0%, rgba(26, 107, 64, 0.55), transparent 70%),
+        linear-gradient(180deg, rgba(16, 42, 28, 0.95), rgba(6, 16, 11, 0.95));
+      box-shadow: var(--shadow);
+      color: var(--cream);
+      text-decoration: none;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .table-card:hover, .table-card:focus-visible { transform: translateY(-3px); border-color: var(--gold-bright); }
+    .table-icon { font-size: 2.6rem; color: var(--gold-bright); display: flex; gap: 4px; }
+    .table-icon .red { color: #e0637a; }
+    .table-name { font-family: var(--font-display); font-size: 1.7rem; }
+    .table-desc { font-size: 0.88rem; color: rgba(245, 233, 200, 0.7); line-height: 1.4; }
+    .table-count {
+      margin-top: 4px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(212, 175, 55, 0.35);
+      color: var(--gold-bright);
+      font-variant-numeric: tabular-nums;
+    }
+    .hosts { margin-top: 26px; font-size: 0.82rem; color: rgba(245, 233, 200, 0.55); }
+    .hosts a { color: rgba(245, 233, 200, 0.8); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1 class="gold-text">Royale</h1>
+    <p class="subtitle">Deux tables ouvertes — choisis la tienne. Les soldes sont séparés.</p>
+    <div class="tables">
+      <a class="table-card" href="/blackjack">
+        <span class="table-icon"><i data-icon="spade"></i><i class="red" data-icon="heart"></i></span>
+        <span class="table-name">Blackjack</span>
+        <span class="table-desc">Contre le croupier, jusqu’à 7 joueurs.<br>Paris annexes, assurance, split.</span>
+        <span class="table-count" id="count-blackjack">…</span>
+      </a>
+      <a class="table-card" href="/poker">
+        <span class="table-icon"><i class="red" data-icon="diamond"></i><i data-icon="club"></i></span>
+        <span class="table-name">Poker</span>
+        <span class="table-desc">Texas Hold’em No Limit, jusqu’à 8 joueurs.<br>Entre vous, sans croupier à battre.</span>
+        <span class="table-count" id="count-poker">…</span>
+      </a>
+    </div>
+    <p class="hosts">Écran commun : <a href="/host">table de blackjack</a> · <a href="/poker/host">table de poker</a></p>
+  </main>
+
+  <script src="/js/icons.js"></script>
+  <script>
+    'use strict';
+    // Lien modérateur (?admin=code) : retenu sur cet appareil pour les deux tables,
+    // puis retiré de l'adresse.
+    (() => {
+      const url = new URL(location.href);
+      const key = url.searchParams.get('admin');
+      if (!key) return;
+      localStorage.setItem('bj_admin_key', key);
+      url.searchParams.delete('admin');
+      history.replaceState(null, '', url.pathname + url.search + url.hash);
+    })();
+
+    async function refreshCounts() {
+      try {
+        const t = await (await fetch('/api/tables')).json();
+        for (const key of ['blackjack', 'poker']) {
+          const { players, max } = t[key];
+          document.getElementById(`count-${key}`).textContent =
+            players >= max ? `Complète (${players}/${max})` : `${players}/${max} joueur${players > 1 ? 's' : ''}`;
+        }
+      } catch {
+        // Hors ligne : les compteurs restent sur « … ».
+      }
+    }
+    refreshCounts();
+    setInterval(refreshCounts, 5000);
+  </script>
+</body>
+</html>
