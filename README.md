@@ -14,7 +14,7 @@ Le serveur ouvre **deux tables en même temps**. La page d'accueil (`/`) propose
 
 ### Poker : Texas Hold'em No Limit
 
-- **Avant la première main**, le chef de table (ou l'écran de la table) choisit le tapis de départ (500 à 10 000), les blindes de départ (de 1/2 à 100/200) et **leur évolution** :
+- **Avant la première main**, le chef de table (ou l'écran de la table) choisit le tapis de départ (500 à 10 000) — **les blindes de départ en découlent** (grosse blinde ≈ 1 % du tapis : 1 000 → 5/10, 5 000 → 25/50) — et **leur évolution** :
   - **Rapide** : un niveau de plus toutes les 5 minutes ;
   - **Longue** : toutes les 15 minutes ;
   - **À chaque élimination** : un niveau de plus chaque fois qu'un joueur tombe à zéro.

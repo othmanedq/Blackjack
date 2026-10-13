@@ -13,7 +13,6 @@ const els = {
   joinUrl: document.getElementById('join-url'),
   configBox: document.getElementById('config-box'),
   stackSelect: document.getElementById('stack-select'),
-  blindsSelect: document.getElementById('blinds-select'),
   modeSelect: document.getElementById('mode-select'),
   startBtn: document.getElementById('start-btn'),
   startLabel: document.getElementById('start-label'),
@@ -82,9 +81,6 @@ els.stackSelect.addEventListener('change', () => {
 els.modeSelect.addEventListener('change', () => {
   socket.emit('host:configure', { mode: els.modeSelect.value }, (res) => res && !res.ok && showToast(res.message));
 });
-els.blindsSelect.addEventListener('change', () => {
-  socket.emit('host:configure', { blinds: Number(els.blindsSelect.value) }, (res) => res && !res.ok && showToast(res.message));
-});
 
 els.collapseBtn.addEventListener('click', () => { panelMode = 'hidden'; render(); });
 els.expandBtn.addEventListener('click', () => { panelMode = 'visible'; render(); });
@@ -111,12 +107,10 @@ function render() {
 
   els.configBox.hidden = !state.canConfigure;
   if (state.canConfigure) {
-    if (!els.blindsSelect.options.length) {
-      els.blindsSelect.innerHTML = state.startLevels.map(({ level, blinds: [sb, bb] }) => `<option value="${level}">${sb} / ${bb}</option>`).join('');
+    if (!els.modeSelect.options.length) {
       els.modeSelect.innerHTML = Object.entries(state.blindModes).map(([key, m]) => `<option value="${key}">${m.label} (${m.detail})</option>`).join('');
     }
     if (document.activeElement !== els.stackSelect) els.stackSelect.value = String(state.startingStack);
-    if (document.activeElement !== els.blindsSelect) els.blindsSelect.value = String(state.blindLevel);
     if (document.activeElement !== els.modeSelect) els.modeSelect.value = state.blindMode;
   }
   const seated = state.players.filter((p) => p.connected && p.stack > 0).length;

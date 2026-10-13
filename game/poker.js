@@ -24,7 +24,6 @@ const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
 const DEFAULTS = {
   maxPlayers: 8,
   startingStack: 1000,
-  startLevel: 3,        // niveau de blindes de départ (5/10)
   blindMode: 'long',    // évolution des blindes : fast | long | elimination
   turnTimeMs: 30000,
   resultsTimeMs: 7000,
@@ -40,8 +39,15 @@ const BLIND_SCHEDULE = [
   [100, 200], [150, 300], [200, 400], [300, 600], [500, 1000], [750, 1500], [1000, 2000],
   [1500, 3000], [2000, 4000], [3000, 6000], [5000, 10000],
 ];
-// Niveaux de départ proposés au chef de table (indices dans l'échelle).
-const START_LEVELS = [0, 3, 4, 6, 7, 9];
+/**
+ * Niveau de départ déduit du tapis, comme en tournoi : grosse blinde
+ * d'environ 1 % du tapis (1 000 → 5/10, 5 000 → 25/50).
+ */
+function startLevelFor(stack) {
+  let level = 0;
+  for (let i = 0; i < BLIND_SCHEDULE.length; i++) if (BLIND_SCHEDULE[i][1] <= stack / 100) level = i;
+  return level;
+}
 // Évolution des blindes : un niveau de plus tous les N minutes, ou à chaque élimination.
 const BLIND_MODES = {
   fast: { label: 'Rapide', detail: 'toutes les 5 min', minutes: 5 },
@@ -96,7 +102,7 @@ class PokerGame {
     this.configured = false; // tapis et blindes verrouillés après la 1re main
     this.rebuyRequest = null; // vote de recave en cours : { playerId, pending, approved, refused }
     // Blindes progressives
-    this.blindLevel = this.opts.startLevel;
+    this.blindLevel = startLevelFor(this.opts.startingStack);
     this.blindMode = this.opts.blindMode;
     this.nextLevelAt = null;      // modes chronométrés : passage au niveau suivant
     this.pausedAt = null;         // partie arrêtée faute de joueurs : le chrono s'arrête
@@ -234,8 +240,8 @@ class PokerGame {
 
   // ------------------------------------------------------------ configuration
 
-  /** Tapis de départ, blindes de départ et leur évolution : réglables avant la première main. */
-  configure(token, { stack, blinds, mode } = {}) {
+  /** Tapis de départ (qui fixe les blindes de départ) et évolution des blindes : avant la première main. */
+  configure(token, { stack, mode } = {}) {
     this.assertChef(token);
     if (this.configured) throw new Error('Les réglages se font avant la première main.');
     if (stack !== undefined) {
@@ -243,11 +249,8 @@ class PokerGame {
       if (!Number.isFinite(v) || v < 20 || v > 1000000) throw new Error('Tapis de départ invalide.');
       this.opts.startingStack = v;
       for (const p of this.players.values()) p.stack = v;
-    }
-    if (blinds !== undefined) {
-      const level = Number(blinds);
-      if (!START_LEVELS.includes(level)) throw new Error('Blindes invalides.');
-      this.blindLevel = level;
+      // Les blindes de départ suivent le tapis.
+      this.blindLevel = startLevelFor(v);
     }
     if (mode !== undefined) {
       if (!BLIND_MODES[mode]) throw new Error('Évolution des blindes invalide.');
@@ -850,7 +853,6 @@ class PokerGame {
       blindLevel: this.blindLevel,
       blindMode: this.blindMode,
       blindModes: BLIND_MODES,
-      startLevels: START_LEVELS.map((i) => ({ level: i, blinds: BLIND_SCHEDULE[i] })),
       nextBlinds: BLIND_SCHEDULE[this.blindLevel + 1] || null,
       // Chrono figé pendant une pause : on envoie le temps restant plutôt qu'une heure.
       nextLevelAt: this.levelMs() && this.nextLevelAt && this.pausedAt === null ? this.nextLevelAt : null,
@@ -939,4 +941,4 @@ class PokerGame {
   }
 }
 
-module.exports = { PokerGame, BLIND_SCHEDULE, BLIND_MODES, START_LEVELS, DEFAULTS };
+module.exports = { PokerGame, BLIND_SCHEDULE, BLIND_MODES, startLevelFor, DEFAULTS };

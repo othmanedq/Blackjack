@@ -24,7 +24,6 @@ const els = {
   meTimer: $('me-timer'),
   configPanel: $('config-panel'),
   stackOptions: $('stack-options'),
-  blindOptions: $('blind-options'),
   blindModes: $('blind-modes'),
   miniBlinds: $('mini-blinds'),
   configHint: $('config-hint'),
@@ -312,11 +311,6 @@ els.blindModes.addEventListener('click', (e) => {
   if (!b) return;
   socket.emit('player:configure', { mode: b.dataset.mode }, (res) => res && !res.ok && showToast(res.message));
 });
-els.blindOptions.addEventListener('click', (e) => {
-  const b = e.target.closest('[data-blinds]');
-  if (!b) return;
-  socket.emit('player:configure', { blinds: Number(b.dataset.blinds) }, (res) => res && !res.ok && showToast(res.message));
-});
 
 els.rebuyBtn.addEventListener('click', () => {
   socket.emit('player:rebuy', (res) => {
@@ -472,10 +466,8 @@ function renderConfig() {
     `<button type="button" class="mode-btn${key === state.blindMode ? ' selected' : ''}" data-mode="${key}" ${chef ? '' : 'disabled'}>
       <span class="mode-label">${m.label}</span><span class="mode-sub">${m.detail}</span>
     </button>`).join('');
-  els.blindOptions.innerHTML = state.startLevels.map(({ level, blinds: [sb, bb] }) =>
-    `<button type="button" class="stake-btn${level === state.blindLevel ? ' selected' : ''}" data-blinds="${level}" ${chef ? '' : 'disabled'}>${sb}/${bb}</button>`).join('');
   els.configHint.textContent = chef
-    ? 'Chef de table : ces réglages se figent au lancement de la partie.'
+    ? `Blindes de départ : ${state.smallBlind}/${state.bigBlind} (1 % du tapis). Ces réglages se figent au lancement.`
     : `En attente du chef de table — tapis ${fmt.format(state.startingStack)}, blindes ${state.smallBlind}/${state.bigBlind}, partie ${state.blindModes[state.blindMode].label.toLowerCase()}.`;
 }
 

@@ -291,7 +291,7 @@ async function untilShowdown(game, maxMs = 3000) {
   {
     // Chrono : un niveau de plus quand le temps est écoulé, jamais en pleine main.
     const { game, ps: [a] } = table(2);
-    game.configure('a', { mode: 'fast', blinds: 3 });
+    game.configure('a', { mode: 'fast' });
     assert.throws(() => game.configure('a', { mode: 'turbo' }), /invalide/);
     game.start('a');
     assert.deepStrictEqual([game.smallBlind, game.bigBlind], [5, 10]);
@@ -312,6 +312,16 @@ async function untilShowdown(game, maxMs = 3000) {
     game.advanceBlinds(Date.now());
     assert.ok(game.nextLevelAt - before >= 59000, 'le temps de pause est rendu au niveau en cours');
     console.log('✓ poker : blindes qui montent au chrono, figées pendant les pauses');
+  }
+  {
+    // Blindes de départ déduites du tapis (grosse blinde ≈ 1 %).
+    const { game } = table(2);
+    const startFor = (stack) => {
+      game.configure('a', { stack });
+      return `${game.smallBlind}/${game.bigBlind}`;
+    };
+    assert.deepStrictEqual([500, 1000, 2000, 5000, 10000].map(startFor), ['2/4', '5/10', '10/20', '25/50', '50/100']);
+    console.log('✓ poker : blindes de départ calculées à partir du tapis');
   }
   {
     // Élimination : chaque joueur tombé à zéro fait monter les blindes d'un niveau.
