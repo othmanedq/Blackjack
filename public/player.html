@@ -72,6 +72,18 @@
       <button type="button" class="react-btn" id="react-btn" aria-label="Réagir" aria-expanded="false">
         <i data-icon="smile"></i>
       </button>
+      <!-- Téléphone : chat, réactions et modération regroupés dans un menu -->
+      <button type="button" class="react-btn menu-btn" id="menu-btn" aria-label="Menu" aria-expanded="false" aria-haspopup="menu">
+        <i data-icon="more"></i>
+        <span class="chat-badge" id="menu-badge" hidden>0</span>
+      </button>
+      <div class="head-menu" id="head-menu" role="menu" hidden>
+        <button type="button" role="menuitem" data-menu="chat">
+          <i data-icon="chat"></i> Chat <span class="menu-count" id="menu-chat-count" hidden></span>
+        </button>
+        <button type="button" role="menuitem" data-menu="react"><i data-icon="smile"></i> Réactions</button>
+        <button type="button" role="menuitem" data-menu="mod" id="menu-mod" hidden><i data-icon="shield"></i> Modération</button>
+      </div>
     </header>
 
     <!-- Réactions : un visage tapé s'affiche chez tout le monde -->

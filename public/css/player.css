@@ -93,6 +93,7 @@ html, body {
 .game { justify-content: flex-start; }
 
 .game-head {
+  position: relative;
   width: 100%;
   display: flex;
   align-items: center;
@@ -1142,4 +1143,61 @@ html, body {
   background: linear-gradient(180deg, #2ecc71, #1d8a4a);
   color: #fff;
   box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.25);
+}
+
+/* ================= menu de l'en-tête (téléphone) =================
+   Sur un petit écran, chat, réactions et modération tiennent dans un seul
+   bouton « ⋯ » : le pseudo garde sa place. Sur ordinateur et tablette,
+   les boutons restent séparés. */
+
+.menu-btn { position: relative; display: none; }
+.head-menu {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 200px;
+  padding: 6px;
+  border-radius: 14px;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  background: linear-gradient(180deg, #13301f, #08150e);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: tray-in 0.16s ease;
+}
+.head-menu[hidden] { display: none; }
+.head-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 12px;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  color: var(--cream);
+  font-family: var(--font-ui);
+  font-size: 0.98rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.head-menu button:active, .head-menu button:hover { background: rgba(255, 255, 255, 0.07); }
+.head-menu button i { color: var(--gold-bright); font-size: 1.15rem; }
+.menu-count {
+  margin-left: auto;
+  min-width: 20px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--lose);
+  color: #fff;
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+@media (max-width: 699px) {
+  .game-head > .react-btn:not(.menu-btn) { display: none; }
+  .menu-btn { display: grid; }
 }

@@ -37,6 +37,11 @@ const els = {
   reactBtn: document.getElementById('react-btn'),
   chatBtn: document.getElementById('chat-btn'),
   modBtn: document.getElementById('mod-btn'),
+  menuBtn: document.getElementById('menu-btn'),
+  menuBadge: document.getElementById('menu-badge'),
+  headMenu: document.getElementById('head-menu'),
+  menuChatCount: document.getElementById('menu-chat-count'),
+  menuMod: document.getElementById('menu-mod'),
   modModal: document.getElementById('mod-modal'),
   modClose: document.getElementById('mod-close'),
   modAutoRebuy: document.getElementById('mod-auto-rebuy'),
@@ -476,9 +481,41 @@ function chatIsOpen() {
 
 function setChatUnread(n) {
   chatUnread = n;
-  els.chatBadge.hidden = n === 0;
-  els.chatBadge.textContent = n > 9 ? '9+' : String(n);
+  const label = n > 9 ? '9+' : String(n);
+  // Même compteur sur le bouton chat (ordinateur) et sur le menu (téléphone).
+  for (const el of [els.chatBadge, els.menuBadge, els.menuChatCount]) {
+    el.hidden = n === 0;
+    el.textContent = label;
+  }
 }
+
+/* --------------------- menu de l'en-tête (téléphone) --------------------- */
+
+function setHeadMenu(open) {
+  els.headMenu.hidden = !open;
+  els.menuBtn.setAttribute('aria-expanded', String(open));
+}
+
+els.menuBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  sfx.click();
+  setHeadMenu(els.headMenu.hidden);
+});
+
+// Chaque entrée déclenche le bouton d'origine (masqué sur téléphone).
+els.headMenu.addEventListener('click', (e) => {
+  const item = e.target.closest('[data-menu]');
+  if (!item) return;
+  e.stopPropagation();
+  setHeadMenu(false);
+  const target = { chat: els.chatBtn, react: els.reactBtn, mod: els.modBtn }[item.dataset.menu];
+  if (target) target.click();
+});
+
+// Un tap ailleurs referme le menu.
+document.addEventListener('click', (e) => {
+  if (!els.headMenu.hidden && !els.headMenu.contains(e.target)) setHeadMenu(false);
+});
 
 function openChat(open) {
   els.chatSheet.hidden = !open;
@@ -1051,6 +1088,7 @@ els.modList.addEventListener('click', (e) => {
 function renderModeration() {
   const mod = isModerator();
   els.modBtn.hidden = !mod;
+  els.menuMod.hidden = !mod;
   if (!mod) {
     els.modModal.hidden = true;
     return;

@@ -48,6 +48,7 @@ const ICONS = {
   logout: '<path d="M9.5 20.5H5.6a1.6 1.6 0 0 1-1.6-1.6V5.1a1.6 1.6 0 0 1 1.6-1.6h3.9"/><path d="M15.5 16.5L20 12l-4.5-4.5M20 12H9.5"/>',
   chat: '<path d="M4.5 5.5h15a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.6 3.6V17.5H4.5A1.5 1.5 0 0 1 3 16V7a1.5 1.5 0 0 1 1.5-1.5z"/><path d="M7.5 10h9M7.5 13.2h5.5"/>',
   send: '<path d="M3.5 11.6L20.5 4l-6.6 17-3.3-7.1z"/><path d="M10.6 13.9L20.5 4"/>',
+  more: '<circle cx="5.5" cy="12" r="1.6" class="i-solid"/><circle cx="12" cy="12" r="1.6" class="i-solid"/><circle cx="18.5" cy="12" r="1.6" class="i-solid"/>',
   smile: '<circle cx="12" cy="12" r="8.5"/><path d="M8.2 14.2c1.9 2.4 5.7 2.4 7.6 0"/><circle cx="9" cy="9.8" r="1.1" class="i-solid"/><circle cx="15" cy="9.8" r="1.1" class="i-solid"/>',
   eye: '<path d="M2 12s3.6-6.8 10-6.8S22 12 22 12s-3.6 6.8-10 6.8S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   arrowUp: '<path d="M12 20V5M5.6 11.4L12 5l6.4 6.4"/>',
