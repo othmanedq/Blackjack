@@ -544,7 +544,9 @@ console.log('✓ paris annexes : Perfect Pairs et 21+3');
   // Bob part sans avoir misé : Alice était la seule à attendre, on distribue.
   game.leaveTable('b');
   assert.ok(!game.players.has('b'));
-  assert.strictEqual(game.phase === 'playing' || game.phase === 'results' || game.phase === 'insurance', true);
+  // Distribution lancée : la phase suivante dépend du tirage (assurance si
+  // le croupier montre un As, tour du croupier si Alice a un blackjack…).
+  assert.notStrictEqual(game.phase, 'betting', 'la distribution doit avoir eu lieu');
   game.clearTimers();
   // Il revient avec le même appareil : il retrouve ses jetons.
   const back = game.addPlayer({ token: 'b', name: 'Bob' });
