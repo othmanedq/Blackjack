@@ -11,129 +11,6 @@
 .menu-q { width: 1.15rem; text-align: center; font-weight: 800; color: var(--gold-bright); }
 #rules-btn { font-weight: 800; font-size: 1.05rem; }
 
-/* --- table compacte (téléphone) : tapis, tableau au centre, adversaires en tuiles --- */
-.ptable-mini {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px 10px 14px;
-  border: none;
-  border-radius: 18px 18px 38% 38% / 18px 18px 12% 12%;
-  background:
-    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.08), transparent 60%),
-    radial-gradient(ellipse at 50% 30%, #1a6b40 0%, #12512f 55%, #0b3a21 100%);
-  box-shadow: 0 0 0 5px #3b1c0e, 0 0 0 6px rgba(212, 175, 55, 0.5), 0 12px 28px rgba(0, 0, 0, 0.55);
-  margin: 4px 6px 6px;
-  width: calc(100% - 12px);
-}
-.mini-board { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.mini-board .hand.mini { justify-content: center; min-height: 0; gap: 4px; flex-wrap: nowrap; }
-.mini-board .hand.mini .card { --card-w: 46px; --card-h: 64px; }
-.mini-board .hand.mini .card-front .corner { font-size: 13px; }
-.mini-board .hand.mini .card-front .pip { font-size: 26px; }
-.mini-board .hand.mini:empty {
-  width: calc(5 * 46px + 4 * 4px);
-  max-width: 100%;
-  height: 64px;
-  border-radius: 8px;
-  border: 1px dashed rgba(245, 233, 200, 0.22);
-  display: grid;
-  place-items: center;
-}
-.mini-board .hand.mini:empty::before {
-  content: 'Texas Hold’em · No Limit';
-  font-family: var(--font-display);
-  font-size: 0.72rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(243, 216, 120, 0.45);
-}
-
-.mini-players { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-.mini-players .t-empty { grid-column: 1 / -1; }
-.ptile {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 6px 6px 7px;
-  border-radius: 12px;
-  background: rgba(0, 0, 0, 0.28);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  min-width: 0;
-}
-.ptile.turn { border-color: var(--gold); box-shadow: 0 0 12px rgba(212, 175, 55, 0.35); }
-.ptile.winner { border-color: var(--gold-bright); background: rgba(212, 175, 55, 0.12); }
-.ptile.out { opacity: 0.55; }
-.ptile-head { display: flex; align-items: center; gap: 4px; min-width: 0; }
-.ptile .t-avatar {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  font-size: 0.7rem;
-  background: var(--p-color, var(--gold));
-}
-.ptile-name { font-weight: 800; font-size: 0.76rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.ptile .tag { flex-shrink: 0; }
-.ptile-cards { display: flex; align-items: center; gap: 3px; min-height: 30px; }
-.mc {
-  width: 21px;
-  height: 30px;
-  border-radius: 3px;
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-  background: linear-gradient(160deg, #fdfbf4, #f2ecdc);
-  color: var(--card-black);
-  font-size: 0.7rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-}
-.mc b { font-size: 0.72rem; }
-.mc.red { color: var(--card-red); }
-.mc.back {
-  border: 1.5px solid #f0e3bb;
-  background: repeating-linear-gradient(45deg, rgba(243, 216, 120, 0.25) 0 2px, transparent 2px 4px), #6b1422;
-}
-.ptile-bet {
-  margin-left: auto;
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid rgba(212, 175, 55, 0.5);
-  color: var(--gold-bright);
-  font-size: 0.72rem;
-  font-weight: 800;
-}
-.ptile-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 4px; }
-.ptile-stack { font-size: 0.78rem; font-weight: 700; color: var(--gold-bright); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.ptile-foot .up { color: var(--win); font-size: 0.72rem; }
-.ptile-foot .down { color: var(--lose); font-size: 0.72rem; }
-.ptile-status {
-  font-size: 0.64rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: rgba(245, 233, 200, 0.75);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.ptile-status.turn, .ptile-status.win { color: var(--gold-bright); }
-.ptile-status.allin { color: #ff9f68; }
-.tag {
-  padding: 0 5px;
-  border-radius: 4px;
-  font-size: 0.62rem;
-  font-weight: 800;
-  background: rgba(212, 175, 55, 0.2);
-  color: var(--gold-bright);
-}
-.tag.dealer { background: #f5efe0; color: #1c2430; border-radius: 50%; padding: 0 5px; }
-
 /* --- mes cartes (téléphone) --- */
 .my-cards { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px; }
 .my-cards .hand { min-height: 0; gap: 10px; }
@@ -173,14 +50,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* --- boutons d'action : 3 colonnes --- */
-.poker-actions { grid-template-columns: 1fr 1.25fr 1.25fr; }
-.poker-actions .action-btn { font-size: 1.05rem; padding: 16px 6px; }
-.poker-actions .action-btn.discouraged:not(:disabled) { opacity: 0.55; }
-
-@media (min-width: 700px) and (min-height: 520px) and (orientation: portrait) {
-  .game.has-felt > .actions.poker-actions { grid-template-columns: 1fr 1.25fr 1.25fr; }
-}
 
 .my-position {
   padding: 2px 10px;
@@ -196,14 +65,141 @@
 /* Évolution des blindes (réglages) et niveau en cours */
 .blind-modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0 14px; }
 .blind-modes .mode-btn { padding: 10px 6px; }
-.mini-blinds {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: rgba(245, 233, 200, 0.75);
-  font-variant-numeric: tabular-nums;
-}
 
 /* Mes cartes sur ordinateur / tablette : cachées, un clic les retourne */
 .my-cards.peekable { cursor: pointer; }
 .my-cards.peekable:hover .card { filter: brightness(1.1); }
 .peek-hint { font-size: 0.78rem; color: rgba(245, 233, 200, 0.6); }
+
+/* =====================================================================
+   POKER, façon client en ligne
+   ===================================================================== */
+
+/* Fond : salle sombre, projecteur sur la table */
+body {
+  background:
+    radial-gradient(ellipse 80% 55% at 50% 42%, rgba(255, 214, 150, 0.08), transparent 70%),
+    radial-gradient(ellipse at 50% 45%, #141410 0%, #0a0a08 60%, #040404 100%);
+}
+
+/* --- boutons d'action : 3 colonnes, montant sur 2e ligne --- */
+.poker-actions { grid-template-columns: 1fr 1.15fr 1.15fr; gap: 8px; }
+.poker-actions .action-btn {
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 6px;
+  min-height: 62px;
+  border-radius: 14px;
+  font-size: 1.02rem;
+  line-height: 1.1;
+}
+.poker-actions .act-amt { font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+.action-btn.pk-fold { background: linear-gradient(180deg, #b93a32, #7d201a); }
+.action-btn.pk-call { background: linear-gradient(180deg, #23a35f, #146a3c); }
+.action-btn.pk-raise { background: linear-gradient(180deg, #f0a030, #b86a0c); color: #1f1406; }
+.poker-actions .action-btn.discouraged:not(:disabled) { opacity: 0.5; }
+
+/* --- relance --- */
+.raise-panel { padding: 10px; gap: 10px; }
+.raise-presets { grid-template-columns: repeat(auto-fit, minmax(56px, 1fr)); }
+.raise-row { gap: 8px; }
+.raise-step {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--gold-bright);
+  font-size: 1.4rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+.raise-step:active { transform: scale(0.92); }
+.raise-amount {
+  min-width: 70px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  text-align: center;
+}
+
+/* --- pré-actions --- */
+.preactions {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.pre-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 48px;
+  padding: 8px 6px;
+  border-radius: 12px;
+  border: 1px solid rgba(245, 233, 200, 0.18);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(245, 233, 200, 0.85);
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: left;
+  cursor: pointer;
+}
+.pre-btn i {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  border: 2px solid rgba(245, 233, 200, 0.45);
+}
+.pre-btn.on { border-color: var(--gold-bright); background: rgba(212, 175, 55, 0.16); color: var(--gold-bright); }
+.pre-btn.on i { border-color: var(--gold-bright); background: var(--gold-bright); box-shadow: inset 0 0 0 2px #1a1306; }
+
+/* --- infos du joueur sous la table (téléphone) --- */
+.hero-info {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: rgba(245, 233, 200, 0.7);
+}
+.hero-info b { font-family: var(--font-display); font-size: 1.05rem; color: var(--gold-bright); font-weight: 600; }
+.hero-info i { font-style: normal; opacity: 0.4; }
+.hero-info span { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+
+/* --- téléphone : la table occupe l'écran --- */
+@media not ((min-width: 700px) and (min-height: 520px)) {
+  #screen-game { gap: 8px; padding-top: max(10px, env(safe-area-inset-top)); }
+  #screen-game > .game-head { order: 0; }
+  #screen-game > .react-tray { order: 1; }
+  #screen-game > .status-line { order: 2; }
+  #screen-game > .felt-area {
+    order: 3;
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    container-type: size;
+    --table-max-h: 100cqh;
+  }
+  #screen-game > .hero-info { order: 4; }
+  #screen-game > .game-scroll { order: 5; flex: 0 1 auto; max-height: 42dvh; }
+  #screen-game > .raise-panel { order: 6; }
+  #screen-game > .preactions { order: 7; }
+  #screen-game > .actions { order: 8; }
+  /* Pendant une main, les messages sont sur la table : la zone du bas reste discrète. */
+  #screen-game .game-scroll .center-msg { display: none; }
+  #screen-game .status-line .badge { font-size: 0.7rem; }
+}
+
+/* --- ordinateur : colonne de droite --- */
+@media (min-width: 700px) and (min-height: 520px) {
+  .game.has-felt > .hero-info { display: none; }
+  .game.has-felt > .preactions { grid-row: 6; }
+}

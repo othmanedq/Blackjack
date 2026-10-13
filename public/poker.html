@@ -93,17 +93,7 @@
         <p class="config-hint" id="config-hint"></p>
       </div>
 
-      <!-- Téléphone : la table en version compacte -->
-      <div class="panel ptable-mini" id="mini-table">
-        <div class="mini-board">
-          <div class="hand mini" id="mini-board"></div>
-          <span class="ppot" id="mini-pot" hidden></span>
-          <span class="mini-blinds" id="mini-blinds" hidden></span>
-        </div>
-        <div class="mini-players" id="mini-players"></div>
-      </div>
-
-      <!-- Téléphone : mes cartes en grand -->
+      <!-- Ordinateur : mes cartes en grand dans la colonne (sur téléphone, elles sont sur la table) -->
       <div class="panel my-cards" id="my-cards-panel" hidden>
         <div class="hand" id="my-cards"></div>
         <p class="peek-hint" id="peek-hint" hidden></p>
@@ -122,18 +112,31 @@
     </main>
 
     <!-- Relance : montant à régler -->
+    <!-- Téléphone : force de ma main et ma position, sous la table -->
+    <div class="hero-info" id="hero-info" hidden></div>
+
+    <!-- Relance : raccourcis, − / +, curseur -->
     <div class="raise-panel preset-hint" id="raise-panel" hidden>
       <div class="raise-presets" id="raise-presets"></div>
       <div class="raise-row">
+        <button type="button" class="raise-step" data-step="-1" aria-label="Moins">−</button>
         <input type="range" id="raise-range" min="0" max="100" step="1" aria-label="Montant de la relance" />
+        <button type="button" class="raise-step" data-step="1" aria-label="Plus">+</button>
         <span class="raise-amount" id="raise-amount">0</span>
       </div>
     </div>
 
+    <!-- Pré-actions : programmées pendant que les autres parlent -->
+    <div class="preactions" id="preactions" hidden>
+      <button type="button" class="pre-btn" data-pre="checkfold"><i></i><span>Check / Couché</span></button>
+      <button type="button" class="pre-btn" data-pre="checkcall"><i></i><span>Check</span></button>
+      <button type="button" class="pre-btn" data-pre="callany"><i></i><span>Suivre tout</span></button>
+    </div>
+
     <footer class="actions poker-actions" id="actions">
-      <button class="action-btn stand" data-act="fold">Se coucher</button>
-      <button class="action-btn hit" data-act="call" id="call-btn">Checker</button>
-      <button class="action-btn double" data-act="raise" id="raise-btn">Relancer</button>
+      <button class="action-btn pk-fold" data-act="fold"><span class="act-name">Se coucher</span></button>
+      <button class="action-btn pk-call" data-act="call" id="call-btn"><span class="act-name">Check</span><b class="act-amt"></b></button>
+      <button class="action-btn pk-raise" data-act="raise" id="raise-btn"><span class="act-name">Relancer</span><b class="act-amt"></b></button>
     </footer>
   </section>
 

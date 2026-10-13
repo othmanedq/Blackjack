@@ -23,7 +23,8 @@ assert.strictEqual(best('Qs Qh Qd 8c 8h 2d 3c').label, 'Full aux dames par les h
 assert.strictEqual(best('2h 7h 9h Jh Kh 3c 4d').score[0], CATEGORY.FLUSH);
 assert.strictEqual(best('5s 6h 7d 8c 9h 2d 2c').label, 'Quinte au neuf');
 assert.strictEqual(best('As 2h 3d 4c 5h Kd Qc').label, 'Quinte au cinq', 'la roue : As compte pour 1');
-assert.strictEqual(best('As Kh Qd Jc Th 2d 3c').label, 'Quinte au as');
+assert.strictEqual(best('As Kh Qd Jc Th 2d 3c').label, 'Quinte à l’as');
+assert.strictEqual(best('As Ah Kd 7c 5h 3d 2c').label, 'Paire d’as');
 assert.strictEqual(best('Ks Ah 2d 3c 4h 9d 8c').score[0], CATEGORY.HIGH_CARD, 'pas de quinte « tournante » K-A-2-3-4');
 assert.strictEqual(best('7s 7h 7d Kc 2h 4d 9c').label, 'Brelan de sept');
 assert.strictEqual(best('As Ah 6d 6c 2h 4d 9c').label, 'Double paire as et six');

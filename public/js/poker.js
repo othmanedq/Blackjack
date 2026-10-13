@@ -25,12 +25,9 @@ const els = {
   configPanel: $('config-panel'),
   stackOptions: $('stack-options'),
   blindModes: $('blind-modes'),
-  miniBlinds: $('mini-blinds'),
   configHint: $('config-hint'),
-  miniTable: $('mini-table'),
-  miniBoard: $('mini-board'),
-  miniPot: $('mini-pot'),
-  miniPlayers: $('mini-players'),
+  heroInfo: $('hero-info'),
+  preactions: $('preactions'),
   myCardsPanel: $('my-cards-panel'),
   myCards: $('my-cards'),
   myHandLabel: $('my-hand-label'),
@@ -223,6 +220,7 @@ function toggleMyCards() {
 
 const tableView = createPokerTableView(els.feltArea, {
   meId: () => token,
+  portrait: () => !wideMql.matches,
   phaseMessage: playerPhaseMessage,
   hideMine: hideMyCards,
   onToggleMine: toggleMyCards,
@@ -254,6 +252,10 @@ const isMyTurn = () => !!(findMe() && findMe().isTurn);
 
 let raiseOpen = false;
 let raiseTo = 0;
+// Pré-action programmée pendant que les autres parlent :
+// { type: 'checkfold' | 'checkcall' | 'callany', amount, hand }
+let preAction = null;
+let autoActedKey = null; // évite de jouer deux fois la même pré-action
 
 els.actions.addEventListener('click', (e) => {
   const btn = e.target.closest('[data-act]');
@@ -267,7 +269,7 @@ els.actions.addEventListener('click', (e) => {
     // Premier tap : on ouvre le réglage ; second tap : on confirme le montant.
     if (!raiseOpen) {
       raiseOpen = true;
-      raiseTo = you.minRaiseTo;
+      raiseTo = defaultRaise();
       render();
       return;
     }
@@ -282,21 +284,40 @@ function send(type, amount) {
   });
 }
 
-/** Montants de relance proposés : minimum, ½ pot, pot, tapis (bornés). */
+const clampRaise = (v) => Math.max(state.you.minRaiseTo, Math.min(state.you.maxRaiseTo, Math.round(v)));
+
+/**
+ * Raccourcis de relance, comme sur les sites : avant le flop en grosses
+ * blindes (ou en multiple de la relance d'en face), après le flop en
+ * fraction du pot. Montants « relance à » (total misé sur ce tour).
+ */
 function raisePresets() {
   const you = state.you;
   const me = findMe();
-  const potAfterCall = state.pot + you.toCall;
-  const clamp = (v) => Math.max(you.minRaiseTo, Math.min(you.maxRaiseTo, Math.round(v)));
-  const base = me.bet + you.toCall;
-  const list = [
-    ['Min', you.minRaiseTo],
-    ['½ pot', clamp(base + potAfterCall / 2)],
-    ['Pot', clamp(base + potAfterCall)],
-    ['Tapis', you.maxRaiseTo],
-  ];
+  const bb = state.bigBlind;
+  const list = [];
+  if (state.phase === 'preflop') {
+    if (state.currentBet <= bb) {
+      list.push(['2,5 BB', bb * 2.5], ['3 BB', bb * 3], ['4 BB', bb * 4]);
+    } else {
+      list.push(['×2,5', state.currentBet * 2.5], ['×3', state.currentBet * 3]);
+    }
+  } else {
+    const potAfterCall = state.pot + you.toCall;
+    const base = me.bet + you.toCall;
+    list.push(['⅓', base + potAfterCall / 3], ['½', base + potAfterCall / 2], ['¾', base + potAfterCall * 0.75], ['Pot', base + potAfterCall]);
+  }
+  const out = list.map(([label, v]) => [label, clampRaise(v)]);
+  out.push(['Tapis', you.maxRaiseTo]);
   // Pas de doublon (petits tapis : plusieurs montants identiques).
-  return list.filter(([, v], i) => list.findIndex(([, w]) => w === v) === i);
+  return out.filter(([, v], i) => out.findIndex(([, w]) => w === v) === i);
+}
+
+/** Montant proposé à l'ouverture : 2,5 BB avant le flop, ½ pot après. */
+function defaultRaise() {
+  const presets = raisePresets();
+  const pick = presets.find(([l]) => l === '2,5 BB' || l === '×2,5' || l === '½');
+  return (pick || presets[0])[1];
 }
 
 els.raisePresets.addEventListener('click', (e) => {
@@ -311,9 +332,47 @@ els.raiseRange.addEventListener('input', () => {
   const you = state.you;
   const v = Number(els.raiseRange.value);
   // Arrondi à la grosse blinde, sauf le tapis.
-  raiseTo = v >= you.maxRaiseTo ? you.maxRaiseTo : Math.max(you.minRaiseTo, Math.round(v / state.bigBlind) * state.bigBlind);
+  raiseTo = v >= you.maxRaiseTo ? you.maxRaiseTo : clampRaise(Math.round(v / state.bigBlind) * state.bigBlind);
   renderRaise();
 });
+
+// − / + : une grosse blinde de plus ou de moins.
+els.raisePanel.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-step]');
+  if (!b) return;
+  sfx.click();
+  raiseTo = clampRaise(raiseTo + Number(b.dataset.step) * state.bigBlind);
+  renderRaise();
+});
+
+// Pré-actions : un tap programme, un second tap annule.
+els.preactions.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-pre]');
+  if (!b) return;
+  sfx.click();
+  const type = b.dataset.pre;
+  preAction = preAction && preAction.type === type
+    ? null
+    : { type, amount: state.you ? state.you.toCall : 0, hand: state.handNumber };
+  render();
+});
+
+/** C'est à moi : la pré-action programmée se joue toute seule (si elle est encore valable). */
+function runPreAction(me) {
+  if (!preAction || !me.isTurn) return;
+  const key = `${state.handNumber}-${state.phase}-${state.currentBet}`;
+  if (autoActedKey === key) return;
+  autoActedKey = key;
+  const { type, amount } = preAction;
+  const toCall = state.you.toCall;
+  preAction = null;
+  if (type === 'checkfold') return send(toCall === 0 ? 'check' : 'fold');
+  if (type === 'callany') return send(toCall === 0 ? 'check' : toCall >= me.stack ? 'allin' : 'call');
+  // « Check » ou « Suivre X » : seulement si personne n'a relancé entre-temps.
+  if (toCall === 0) return send('check');
+  if (toCall === amount) return send(toCall >= me.stack ? 'allin' : 'call');
+  showToast('Ça a relancé : à toi de décider.');
+}
 
 /* ------------------------- démarrage, recave, départ ------------------------- */
 
@@ -441,36 +500,40 @@ function render() {
   els.meStack.textContent = fmt.format(me.stack);
   els.meCrown.hidden = !isChef();
 
-  // Ordinateur / tablette : la table ovale remplace la version compacte.
-  const felt = wideMql.matches;
-  els.screenGame.classList.toggle('has-felt', felt);
-  els.feltArea.hidden = !felt;
-  if (felt) tableView.render(state);
-  els.miniTable.hidden = felt;
-  if (!felt) renderMiniTable();
+  // La table : ovale vertical sur téléphone, paysage sur ordinateur / tablette.
+  const wide = wideMql.matches;
+  els.screenGame.classList.toggle('has-felt', wide);
+  els.feltArea.hidden = false;
+  tableView.render(state);
 
-  // Mes cartes en grand, avec la force de ma main (aussi sur ordinateur, à côté de la table).
+  // Ordinateur : mes cartes en grand dans la colonne, à retourner d'un clic.
+  // Téléphone : elles sont déjà en grand sur la table.
   const hasCards = you && you.holeCards.length > 0;
   const shownToAll = !!me.shownCards; // abattage : mes cartes sont montrées à tous
   const hidden = hasCards && !shownToAll && hideMyCards();
-  els.myCardsPanel.hidden = !hasCards;
-  if (hasCards) {
+  els.myCardsPanel.hidden = !wide || !hasCards;
+  if (wide && hasCards) {
     const cards = hidden ? you.holeCards.map((c) => ({ hidden: true, id: `${c.id}-cache` })) : you.holeCards;
     const animate = els.myCards.dataset.hand !== String(state.handNumber);
     els.myCards.dataset.hand = String(state.handNumber);
     syncHand(els.myCards, cards, { animate });
     els.myCardsPanel.classList.toggle('folded', me.folded);
   }
-  els.myCardsPanel.classList.toggle('peekable', hasCards && wideMql.matches && !shownToAll);
-  els.peekHint.hidden = !(hasCards && wideMql.matches && !shownToAll);
+  els.myCardsPanel.classList.toggle('peekable', hasCards && wide && !shownToAll);
+  els.peekHint.hidden = !(hasCards && wide && !shownToAll);
   els.peekHint.textContent = hidden ? 'Clique pour voir tes cartes' : 'Clique pour les cacher';
   // La force de ma main trahirait mes cartes : cachée avec elles.
-  els.myHandLabel.textContent = me.folded ? 'Couché' : hasCards && !hidden ? you.handLabel || '' : '';
+  const handLabel = me.folded ? 'Couché' : hasCards && !hidden ? you.handLabel || '' : '';
+  els.myHandLabel.textContent = handLabel;
   // Ma position à la table (bouton, blindes) : indispensable pour savoir quand je parle.
   const pos = !me.inHand ? '' : me.seat === state.dealerSeat && me.seat === state.sbSeat ? 'Bouton · petite blinde'
-    : me.seat === state.dealerSeat ? 'Bouton (D)' : me.seat === state.sbSeat ? 'Petite blinde' : me.seat === state.bbSeat ? 'Grosse blinde' : '';
+    : me.seat === state.dealerSeat ? 'Bouton' : me.seat === state.sbSeat ? 'Petite blinde' : me.seat === state.bbSeat ? 'Grosse blinde' : '';
   els.myPosition.hidden = !pos;
   els.myPosition.textContent = pos;
+  // Téléphone : la même info, en une ligne sous la table.
+  const heroHtml = [handLabel && `<b>${esc(handLabel)}</b>`, pos && `<span>${esc(pos)}</span>`].filter(Boolean).join('<i>·</i>');
+  els.heroInfo.hidden = wide || !heroHtml;
+  if (els.heroInfo.innerHTML !== heroHtml) els.heroInfo.innerHTML = heroHtml;
 
   renderConfig();
   renderStatus(me);
@@ -484,6 +547,8 @@ function render() {
   const betweenHands = !['preflop', 'flop', 'turn', 'river'].includes(state.phase);
   renderRebuy(me, betweenHands);
   els.kickBtn.hidden = !(isChef() && betweenHands && state.players.length > 1);
+  // Quitter : seulement quand je ne joue pas une main (sinon, place aux actions).
+  els.leaveBtn.hidden = !betweenHands && me.inHand && !me.folded;
   renderChatPeek();
 }
 
@@ -501,53 +566,6 @@ function renderConfig() {
   els.configHint.textContent = chef
     ? `Blindes de départ : ${state.smallBlind}/${state.bigBlind} (1 % du tapis). Ces réglages se figent au lancement.`
     : `En attente du chef de table — tapis ${fmt.format(state.startingStack)}, blindes ${state.smallBlind}/${state.bigBlind}, partie ${state.blindModes[state.blindMode].label.toLowerCase()}.`;
-}
-
-const ACTION_TXT = POKER_ACTION_LABELS;
-
-/** Petite carte en texte (tuiles du téléphone) : face visible ou dos. */
-function miniCard(c) {
-  if (!c) return '<span class="mc back"></span>';
-  const red = c.suit === '♥' || c.suit === '♦';
-  return `<span class="mc${red ? ' red' : ''}"><b>${c.rank}</b>${c.suit}</span>`;
-}
-
-function renderMiniTable() {
-  syncHand(els.miniBoard, state.board);
-  els.miniPot.hidden = !state.pot;
-  els.miniBlinds.hidden = state.phase === 'lobby';
-  els.miniPot.innerHTML = `${iconHtml('chips')} Pot ${fmt.format(state.pot)}`;
-  const res = state.results;
-  const tiles = state.players.filter((p) => p.id !== token).map((p) => {
-    const tags = [
-      p.seat === state.dealerSeat && state.phase !== 'lobby' ? '<span class="tag dealer">D</span>' : '',
-      p.seat === state.sbSeat && p.inHand ? '<span class="tag">PB</span>' : '',
-      p.seat === state.bbSeat && p.inHand ? '<span class="tag">GB</span>' : '',
-    ].join('');
-    const net = res && res.net && res.net[p.id];
-    let status = '';
-    let cls = '';
-    if (!p.connected) status = 'Déconnecté';
-    else if (p.handLabel && state.phase === 'showdown') { status = p.handLabel; cls = net > 0 ? 'win' : ''; }
-    else if (p.isTurn) { status = 'Réfléchit…'; cls = 'turn'; }
-    else if (p.allIn) { status = 'Tapis'; cls = 'allin'; }
-    else if (p.lastAction) status = ACTION_TXT[p.lastAction] || '';
-    else if (!p.inHand && state.phase !== 'lobby') status = p.stack > 0 ? 'Prochaine main' : 'À sec';
-    const cards = p.shownCards
-      ? p.shownCards.map(miniCard).join('')
-      : p.cardCount && !p.folded ? miniCard(null) + miniCard(null) : '';
-    const delta = state.phase === 'showdown' && net ? `<b class="${net > 0 ? 'up' : 'down'}">${net > 0 ? '+' : '−'}${fmt.format(Math.abs(net))}</b>` : '';
-    return `<div class="ptile${p.isTurn ? ' turn' : ''}${p.folded || !p.inHand ? ' out' : ''}${net > 0 ? ' winner' : ''}">
-      <div class="ptile-head">
-        <span class="t-avatar" style="--p-color:${esc(p.color)}">${avatarHtml(p.avatar)}</span>
-        <span class="ptile-name">${esc(p.name)}</span>${tags}
-      </div>
-      <div class="ptile-cards">${cards}${p.bet ? `<span class="ptile-bet">${fmt.format(p.bet)}</span>` : ''}</div>
-      <div class="ptile-foot"><span class="ptile-stack">${iconHtml('chip')} ${fmt.format(p.stack)}</span>${delta}</div>
-      ${status ? `<div class="ptile-status ${cls}">${esc(status)}</div>` : ''}
-    </div>`;
-  }).join('') || '<p class="t-empty">En attente d’autres joueurs…</p>';
-  if (els.miniPlayers.innerHTML !== tiles) els.miniPlayers.innerHTML = tiles;
 }
 
 function renderStatus(me) {
@@ -585,31 +603,59 @@ function renderStatus(me) {
 function renderActions(me) {
   const you = state.you;
   const myTurn = !!(you && me.isTurn);
-  // Boutons seulement quand c'est à moi : le reste du temps, la place va à la table.
-  els.actions.hidden = !myTurn;
-  const [foldBtn] = els.actions.querySelectorAll('[data-act="fold"]');
-  foldBtn.disabled = !myTurn;
-  els.callBtn.disabled = !myTurn;
-  els.raiseBtn.disabled = !myTurn || !you.canRaise;
-  if (!myTurn) raiseOpen = false;
+  runPreAction(me);
 
-  if (you) {
+  // Boutons seulement quand c'est à moi ; sinon, les pré-actions.
+  els.actions.hidden = !myTurn;
+  if (!myTurn) raiseOpen = false;
+  const [foldBtn] = els.actions.querySelectorAll('[data-act="fold"]');
+  const setBtn = (btn, name, amt) => {
+    btn.querySelector('.act-name').textContent = name;
+    const b = btn.querySelector('.act-amt');
+    if (b) {
+      b.textContent = amt || '';
+      b.hidden = !amt;
+    }
+  };
+  if (myTurn) {
     const allInCall = you.toCall > 0 && you.toCall >= me.stack;
-    els.callBtn.textContent = you.toCall === 0 ? 'Checker' : allInCall ? `Tapis (${fmt.format(me.stack)})` : `Suivre ${fmt.format(you.toCall)}`;
+    if (you.toCall === 0) setBtn(els.callBtn, 'Check', '');
+    else if (allInCall) setBtn(els.callBtn, 'Tapis', fmt.format(me.stack));
+    else setBtn(els.callBtn, 'Suivre', fmt.format(you.toCall));
     const verb = state.currentBet === 0 ? 'Miser' : 'Relancer';
-    els.raiseBtn.textContent = raiseOpen
-      ? (raiseTo >= you.maxRaiseTo ? `Tapis ${fmt.format(raiseTo)}` : `${verb} à ${fmt.format(raiseTo)}`)
-      : verb;
-    // Pas de « Se coucher » quand on peut checker gratuitement : on le grise.
-    foldBtn.classList.toggle('discouraged', myTurn && you.toCall === 0);
+    els.raiseBtn.disabled = !you.canRaise;
+    if (raiseOpen) setBtn(els.raiseBtn, raiseTo >= you.maxRaiseTo ? 'Tapis' : verb, raiseTo >= you.maxRaiseTo ? fmt.format(raiseTo) : `à ${fmt.format(raiseTo)}`);
+    else setBtn(els.raiseBtn, verb, '');
+    // Se coucher alors qu'on peut checker gratuitement : déconseillé, grisé.
+    foldBtn.classList.toggle('discouraged', you.toCall === 0);
   }
   els.raisePanel.hidden = !(myTurn && raiseOpen);
   if (myTurn && raiseOpen) renderRaise();
+
+  // Pré-actions : en main, pas encore mon tour, ni couché ni à tapis.
+  const canPre = !!(you && me.inHand && !me.folded && !me.allIn && !myTurn &&
+    ['preflop', 'flop', 'turn', 'river'].includes(state.phase));
+  if (preAction && (preAction.hand !== state.handNumber || !canPre && !myTurn)) preAction = null;
+  els.preactions.hidden = !canPre;
+  if (canPre) {
+    const toCall = you.toCall;
+    const labels = {
+      checkfold: toCall === 0 ? 'Check / Couché' : 'Couché',
+      checkcall: toCall === 0 ? 'Check' : `Suivre ${fmt.format(Math.min(toCall, me.stack))}`,
+      callany: 'Suivre tout',
+    };
+    // « Suivre X » devient caduc si la mise à suivre change : on l'annule.
+    if (preAction && preAction.type === 'checkcall' && preAction.amount !== toCall) preAction = null;
+    els.preactions.querySelectorAll('[data-pre]').forEach((b) => {
+      b.querySelector('span').textContent = labels[b.dataset.pre];
+      b.classList.toggle('on', !!preAction && preAction.type === b.dataset.pre);
+    });
+  }
 }
 
 function renderRaise() {
   const you = state.you;
-  raiseTo = Math.max(you.minRaiseTo, Math.min(you.maxRaiseTo, raiseTo));
+  raiseTo = clampRaise(raiseTo);
   els.raiseRange.min = String(you.minRaiseTo);
   els.raiseRange.max = String(you.maxRaiseTo);
   els.raiseRange.value = String(raiseTo);
@@ -618,7 +664,11 @@ function renderRaise() {
     `<button type="button" class="stake-btn${v === raiseTo ? ' selected' : ''}" data-to="${v}">${label}</button>`).join('');
   if (els.raisePresets.innerHTML !== html) els.raisePresets.innerHTML = html;
   const verb = state.currentBet === 0 ? 'Miser' : 'Relancer';
-  els.raiseBtn.textContent = raiseTo >= you.maxRaiseTo ? `Tapis ${fmt.format(raiseTo)}` : `${verb} à ${fmt.format(raiseTo)}`;
+  const name = els.raiseBtn.querySelector('.act-name');
+  const amt = els.raiseBtn.querySelector('.act-amt');
+  name.textContent = raiseTo >= you.maxRaiseTo ? 'Tapis' : verb;
+  amt.hidden = false;
+  amt.textContent = raiseTo >= you.maxRaiseTo ? fmt.format(raiseTo) : `à ${fmt.format(raiseTo)}`;
 }
 
 /* ------------------------------ recave & vote ------------------------------ */
@@ -708,10 +758,6 @@ function feedback() {
 }
 
 function tick() {
-  if (state && joined && !els.miniBlinds.hidden) {
-    const txt = pokerBlindInfo(state);
-    if (els.miniBlinds.textContent !== txt) els.miniBlinds.textContent = txt;
-  }
   if (state && joined) {
     const me = findMe();
     if (me && me.isTurn && state.turnEndsAt) {

@@ -118,15 +118,18 @@ function describeHand(score) {
   // Pluriel : les chiffres sont invariables (« par les huit »), l'as aussi ;
   // seules les figures prennent un s (valets, dames, rois).
   const plural = (v) => (v >= 11 && v <= 13 ? `${n(v)}s` : n(v));
+  // Élisions : « paire d'as », « quinte à l'as », « couleur à l'as ».
+  const de = (v) => (v === 14 ? 'd’as' : `de ${plural(v)}`);
+  const au = (v) => (v === 14 ? 'à l’as' : `au ${n(v)}`);
   switch (cat) {
-    case CATEGORY.STRAIGHT_FLUSH: return a === 14 ? 'Quinte flush royale' : `Quinte flush au ${n(a)}`;
-    case CATEGORY.QUADS: return `Carré de ${plural(a)}`;
+    case CATEGORY.STRAIGHT_FLUSH: return a === 14 ? 'Quinte flush royale' : `Quinte flush ${au(a)}`;
+    case CATEGORY.QUADS: return `Carré ${de(a)}`;
     case CATEGORY.FULL_HOUSE: return `Full aux ${plural(a)} par les ${plural(b)}`;
-    case CATEGORY.FLUSH: return `Couleur au ${n(a)}`;
-    case CATEGORY.STRAIGHT: return `Quinte au ${n(a)}`;
-    case CATEGORY.TRIPS: return `Brelan de ${plural(a)}`;
+    case CATEGORY.FLUSH: return `Couleur ${au(a)}`;
+    case CATEGORY.STRAIGHT: return `Quinte ${au(a)}`;
+    case CATEGORY.TRIPS: return `Brelan ${de(a)}`;
     case CATEGORY.TWO_PAIR: return `Double paire ${plural(a)} et ${plural(b)}`;
-    case CATEGORY.PAIR: return `Paire de ${plural(a)}`;
+    case CATEGORY.PAIR: return `Paire ${de(a)}`;
     default: return `Carte haute ${n(a)}`;
   }
 }
