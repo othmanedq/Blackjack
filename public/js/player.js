@@ -1330,6 +1330,8 @@ function render() {
   btnDouble.disabled = canAct ? !activeHand.canDouble : !presetMode || !presetHand.canDouble;
   btnSplit.disabled = canAct ? !activeHand.canSplit : !presetMode || !presetHand.canSplit;
 
+  // Boutons seulement quand ils servent : à mon tour, ou pour pré-choisir mon coup.
+  els.actions.hidden = !canAct && !presetMode;
   els.actions.classList.toggle('preset-mode', presetMode);
   els.actions.querySelectorAll('.action-btn').forEach((btn) => {
     btn.classList.toggle('armed', presetMode && me.presetAction === btn.dataset.action);
@@ -1511,7 +1513,8 @@ function otherStatusBadge(p) {
 function renderTable(me) {
   // En mode « tous sur un écran », l'écran commun affiche déjà le croupier
   // et les autres joueurs — pas besoin de dupliquer sur les téléphones.
-  const show = phoneUiEnabled() &&
+  // Pendant les mises, l'écran est à la mise : la table revient à la distribution.
+  const show = phoneUiEnabled() && state.phase !== 'betting' &&
     (state.dealer.cards.length > 0 || state.players.length > 1);
   els.tablePanel.hidden = !show;
   if (!show) return;

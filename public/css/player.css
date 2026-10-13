@@ -1203,3 +1203,140 @@ html, body {
 }
 
 .switch-game { display: block; text-align: center; font-size: 0.85rem; color: rgba(245, 233, 200, 0.6); margin-top: 4px; }
+
+/* =====================================================================
+   REFONTE MOBILE — table en haut sur fond de tapis, ma main en grand,
+   les autres joueurs en tuiles. (Sur ordinateur, la grande table prend le relais.)
+   ===================================================================== */
+
+/* Ordre de lecture d'une vraie table : réglages, puis la table, puis ma main. */
+#config-panel { order: -3; }
+#rebuy-panel { order: -2; }
+#table-panel { order: -1; }
+
+/* --- la mini-table : tapis vert bordé de cuir --- */
+.table-panel {
+  padding: 12px 10px 14px;
+  border: none;
+  border-radius: 18px 18px 46% 46% / 18px 18px 22% 22%;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.08), transparent 60%),
+    radial-gradient(ellipse at 50% 20%, #1a6b40 0%, #12512f 55%, #0b3a21 100%);
+  box-shadow:
+    0 0 0 5px #3b1c0e,
+    0 0 0 6px rgba(212, 175, 55, 0.5),
+    0 12px 28px rgba(0, 0, 0, 0.55);
+  margin: 4px 6px 10px;
+  width: calc(100% - 12px);
+}
+.table-panel .table-toggle { display: none; }
+.table-panel.collapsed #table-body { display: block; }
+
+/* Croupier au centre, en haut */
+.t-dealer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  border-bottom: none;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+}
+.t-dealer .t-head { margin: 0; gap: 8px; }
+.t-dealer .t-dealer-face { width: 34px; height: 34px; }
+.t-dealer .t-name { font-family: var(--font-display); font-size: 0.95rem; color: rgba(245, 233, 200, 0.85); }
+.t-dealer .total-pill { font-size: 1rem; }
+.t-dealer .hand.mini { justify-content: center; min-height: 0; gap: 5px; }
+.t-dealer .hand.mini .card { --card-w: 46px; --card-h: 65px; }
+.t-dealer .hand.mini .card-front .corner { font-size: 13px; }
+.t-dealer .hand.mini .card-front .pip { font-size: 26px; }
+
+/* Les autres joueurs : des tuiles, 3 par ligne */
+#t-others {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.t-other + .t-other { border-top: none; }
+.t-other {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 4px 8px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  min-width: 0;
+}
+.t-other .t-head {
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  width: 100%;
+}
+.t-other .t-name { font-size: 0.78rem; max-width: 100%; }
+.t-other .t-head .badge { margin-left: 0; order: 5; font-size: 0.56rem; }
+.t-other .t-head .total-pill { font-size: 0.76rem; }
+.t-other .hand.mini { justify-content: center; min-height: 0; }
+.t-other .hand.mini .card { --card-w: 30px; --card-h: 42px; }
+.t-other .hand.mini .card + .card { margin-left: -12px; }
+.t-other .hand.mini .card-front .pip { font-size: 15px; }
+.t-other .hand.mini .card-front .corner { font-size: 9px; }
+#t-others .t-empty { grid-column: 1 / -1; }
+
+/* --- ma main : en grand, total lisible d'un coup d'œil --- */
+.my-hands { background: none; border: none; box-shadow: none; padding: 0 0 4px; }
+.my-hand .card { --card-w: 72px; --card-h: 101px; }
+.my-hand .hand { gap: 8px; }
+.my-hand-meta .total-pill { font-size: 1.35rem; padding: 0.12em 0.6em; }
+.my-hand-meta .hand-bet { font-size: 0.9rem; color: rgba(245, 233, 200, 0.75); }
+/* Plusieurs mains (split) : un peu plus petites pour tenir */
+.my-hands #my-hands:has(.my-hand + .my-hand) .card { --card-w: 56px; --card-h: 79px; }
+
+/* --- en-tête : le solde, plus gros --- */
+.me-balance { font-size: 1.12rem; }
+
+/* Le message central ne prend que la place qui reste */
+.game-scroll .center-msg { min-height: 2.4em; }
+
+/* Tuiles compactes : [avatar nom] / [cartes total] / [statut seulement s'il dit quelque chose] */
+.t-other {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "av name name"
+    "hand hand pill"
+    "badge badge badge";
+  align-items: center;
+  column-gap: 5px;
+  row-gap: 4px;
+  padding: 6px 6px 7px;
+}
+.t-other .t-head { display: contents; }
+.t-other .t-avatar { grid-area: av; width: 20px; height: 20px; font-size: 0.7rem; }
+.t-other .t-crown { display: none; }
+.t-other .t-name { grid-area: name; text-align: left; font-size: 0.76rem; }
+.t-other .t-head .total-pill { grid-area: pill; font-size: 0.8rem; min-width: 2em; }
+.t-other .t-head .badge { grid-area: badge; justify-self: center; }
+.t-other .t-head .badge.waiting { display: none; }
+.t-other .hand.mini { grid-area: hand; justify-content: flex-start; }
+.t-other .hand.mini .card { --card-w: 27px; --card-h: 38px; }
+.t-other .hand.mini .card + .card { margin-left: -13px; }
+
+/* Tapis un peu moins arrondi en bas : plus de place pour ma main */
+.table-panel { border-radius: 18px 18px 38% 38% / 18px 18px 12% 12%; padding-bottom: 12px; }
+.t-dealer .hand.mini .card { --card-w: 42px; --card-h: 59px; }
+
+/* Mise : jetons plus gros pour remplir l'écran de mise */
+#bet-panel .chip { --chip-size: 62px; }
+#bet-panel .bet-amount { font-size: 3rem; }
+
+/* Le résultat de la manche juste sous ma main ; les actions de table ensuite. */
+.game-scroll > .table-actions,
+.game-scroll > #leave-btn { order: 2; }
+.game-scroll > #phone-start { order: 3; }
+.game-scroll > .center-msg { flex: 0 0 auto; }
+/* Cartes des autres : toujours sur une ligne, en éventail serré */
+.t-other .hand.mini { flex-wrap: nowrap; }
