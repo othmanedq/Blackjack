@@ -202,3 +202,8 @@
   color: rgba(245, 233, 200, 0.75);
   font-variant-numeric: tabular-nums;
 }
+
+/* Mes cartes sur ordinateur / tablette : cachées, un clic les retourne */
+.my-cards.peekable { cursor: pointer; }
+.my-cards.peekable:hover .card { filter: brightness(1.1); }
+.peek-hint { font-size: 0.78rem; color: rgba(245, 233, 200, 0.6); }

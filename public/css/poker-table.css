@@ -313,3 +313,7 @@
 @container (max-width: 820px) {
   .pseat-plate, .pseat-cards, .pseat-bet { zoom: 1.12; }
 }
+
+/* Mes cartes sur un écran partagé : un clic les retourne */
+.pseat-cards.peekable { cursor: pointer; }
+.pseat-cards.peekable:hover .card { filter: brightness(1.12); }

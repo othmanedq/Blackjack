@@ -34,6 +34,7 @@ const els = {
   myCardsPanel: $('my-cards-panel'),
   myCards: $('my-cards'),
   myHandLabel: $('my-hand-label'),
+  peekHint: $('peek-hint'),
   myPosition: $('my-position'),
   centerMsg: $('center-msg'),
   startBtn: $('start-btn'),
@@ -205,7 +206,27 @@ socket.on('player:modAdjust', ({ amount } = {}) => {
 
 const wideMql = matchMedia('(min-width: 700px) and (min-height: 520px)');
 wideMql.addEventListener('change', () => render());
-const tableView = createPokerTableView(els.feltArea, { meId: () => token, phaseMessage: playerPhaseMessage });
+/* Ordinateur ou tablette : l'écran peut être vu par les voisins. Mes cartes
+   restent face cachée tant que je ne clique pas dessus ; elles se recachent à
+   chaque nouvelle main. (Sur téléphone, l'écran est dans la main : visibles.) */
+let cardsRevealed = false;
+let revealedHand = 0;
+const hideMyCards = () => wideMql.matches && !(cardsRevealed && revealedHand === (state && state.handNumber));
+function toggleMyCards() {
+  if (!wideMql.matches) return;
+  const show = hideMyCards();
+  cardsRevealed = show;
+  revealedHand = state ? state.handNumber : 0;
+  sfx.card();
+  render();
+}
+
+const tableView = createPokerTableView(els.feltArea, {
+  meId: () => token,
+  phaseMessage: playerPhaseMessage,
+  hideMine: hideMyCards,
+  onToggleMine: toggleMyCards,
+});
 
 function playerPhaseMessage(s) {
   if (s.phase === 'lobby') return ['clock', s.players.length < 2 ? 'En attente d’autres joueurs…' : 'En attente du lancement…'];
@@ -337,6 +358,8 @@ els.leaveBtn.addEventListener('click', () => {
   });
 });
 
+els.myCardsPanel.addEventListener('click', toggleMyCards);
+
 els.kickBtn.addEventListener('click', () => {
   els.kickList.innerHTML = state.players.filter((p) => p.id !== token).map((p) => `
     <button type="button" class="pm-row" data-kick="${esc(p.id)}">
@@ -428,12 +451,21 @@ function render() {
 
   // Mes cartes en grand, avec la force de ma main (aussi sur ordinateur, à côté de la table).
   const hasCards = you && you.holeCards.length > 0;
+  const shownToAll = !!me.shownCards; // abattage : mes cartes sont montrées à tous
+  const hidden = hasCards && !shownToAll && hideMyCards();
   els.myCardsPanel.hidden = !hasCards;
   if (hasCards) {
-    syncHand(els.myCards, you.holeCards);
+    const cards = hidden ? you.holeCards.map((c) => ({ hidden: true, id: `${c.id}-cache` })) : you.holeCards;
+    const animate = els.myCards.dataset.hand !== String(state.handNumber);
+    els.myCards.dataset.hand = String(state.handNumber);
+    syncHand(els.myCards, cards, { animate });
     els.myCardsPanel.classList.toggle('folded', me.folded);
   }
-  els.myHandLabel.textContent = hasCards && !me.folded ? you.handLabel || '' : me.folded ? 'Couché' : '';
+  els.myCardsPanel.classList.toggle('peekable', hasCards && wideMql.matches && !shownToAll);
+  els.peekHint.hidden = !(hasCards && wideMql.matches && !shownToAll);
+  els.peekHint.textContent = hidden ? 'Clique pour voir tes cartes' : 'Clique pour les cacher';
+  // La force de ma main trahirait mes cartes : cachée avec elles.
+  els.myHandLabel.textContent = me.folded ? 'Couché' : hasCards && !hidden ? you.handLabel || '' : '';
   // Ma position à la table (bouton, blindes) : indispensable pour savoir quand je parle.
   const pos = !me.inHand ? '' : me.seat === state.dealerSeat && me.seat === state.sbSeat ? 'Bouton · petite blinde'
     : me.seat === state.dealerSeat ? 'Bouton (D)' : me.seat === state.sbSeat ? 'Petite blinde' : me.seat === state.bbSeat ? 'Grosse blinde' : '';

@@ -68,6 +68,8 @@ function pokerChipStack(amount) {
  * @param {object} [opts]
  * @param {() => string|null} [opts.meId] — joueur placé en bas (vue joueur)
  * @param {(state: object) => [string, string] | null} [opts.phaseMessage]
+ * @param {() => boolean} [opts.hideMine] — mes cartes face cachée (écran partagé)
+ * @param {() => void} [opts.onToggleMine] — clic sur mes cartes : les montrer / cacher
  */
 function createPokerTableView(root, opts = {}) {
   root.classList.add('ptable-root');
@@ -99,6 +101,10 @@ function createPokerTableView(root, opts = {}) {
     resultsTimer: q('.presults-timer'),
   };
   const seatEls = []; // index : siège du serveur
+  // Clic sur mes propres cartes (écran partagé) : les retourner.
+  els.seats.addEventListener('click', (e) => {
+    if (opts.onToggleMine && e.target.closest('.pseat.is-me .pseat-cards')) opts.onToggleMine();
+  });
   let state = null;
   const meId = () => (opts.meId ? opts.meId() : null);
 
@@ -194,13 +200,25 @@ function createPokerTableView(root, opts = {}) {
 
     // Cartes : les miennes face visible, celles montrées à l'abattage, sinon des dos.
     let cards = [];
-    if (mine && state.you && state.you.holeCards.length) cards = state.you.holeCards;
-    else if (p.shownCards) cards = p.shownCards;
+    const hidden = mine && !p.shownCards && opts.hideMine && opts.hideMine();
+    if (mine && state.you && state.you.holeCards.length) {
+      // Écran partagé : dos de carte tant que le joueur ne clique pas (ids distincts
+      // pour que le retournement remplace bien la carte).
+      cards = hidden
+        ? state.you.holeCards.map((c) => ({ hidden: true, id: `${c.id}-cache` }))
+        : state.you.holeCards;
+    } else if (p.shownCards) cards = p.shownCards;
     else if (p.cardCount && !p.folded) {
       cards = Array.from({ length: p.cardCount }, (_, i) => ({ hidden: true, id: `back-${state.handNumber}-${p.id}-${i}` }));
     }
     const cardsEl = el.querySelector('.pseat-cards');
-    syncHand(cardsEl, cards);
+    // Mes cartes : animation de distribution seulement à une nouvelle main, pas
+    // quand je les retourne d'un clic.
+    const animate = !mine || cardsEl.dataset.hand !== String(state.handNumber);
+    cardsEl.dataset.hand = String(state.handNumber);
+    syncHand(cardsEl, cards, { animate });
+    cardsEl.classList.toggle('peekable', mine && !!opts.hideMine && !p.shownCards && cards.length > 0);
+    cardsEl.title = mine && opts.hideMine && !p.shownCards ? (hidden ? 'Clique pour voir tes cartes' : 'Clique pour les cacher') : '';
     // Cartes de la combinaison gagnante mises en valeur.
     const best = new Set(p.bestCards || []);
     cardsEl.querySelectorAll('.card').forEach((c) => c.classList.toggle('in-best', best.has(c.dataset.cardId)));
