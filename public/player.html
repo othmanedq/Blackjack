@@ -78,7 +78,13 @@
     <div class="react-tray" id="react-tray" hidden></div>
 
     <div class="status-line">
-      <span class="badge waiting" id="me-status">En attente</span>
+      <div class="status-row">
+        <span class="badge waiting" id="me-status">En attente</span>
+        <!-- Remise automatique : la dernière mise est rejouée à chaque manche -->
+        <button type="button" class="auto-rebet" id="auto-rebet" aria-pressed="false" hidden>
+          <i data-icon="repeat"></i> <span id="auto-rebet-label">Remise auto</span>
+        </button>
+      </div>
       <div class="timerbar" id="me-timer" hidden><i></i></div>
     </div>
 

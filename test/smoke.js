@@ -457,6 +457,42 @@ console.log('✓ paris annexes : Perfect Pairs et 21+3');
   console.log('✓ un pré-choix devenu invalide retombe sur un tour manuel sans bloquer la table');
 })();
 
+// ---------------------------------------------------------- remise automatique
+
+(() => {
+  const game = new Game(() => {}, { betTimeMs: 100000, turnTimeMs: 100000, autoBetDelayMs: 100000 });
+  const alice = game.addPlayer({ token: 'a', name: 'Alice' });
+  const bob = game.addPlayer({ token: 'b', name: 'Bob' });
+  game.setGameMode('table');
+  game.startBetting();
+  game.setAutoRebet('a', { main: 100, pairs: 10, trio: 0 }); // mises ouvertes : part tout de suite
+  assert.strictEqual(alice.betPlaced, true);
+  assert.strictEqual(alice.balance, 890);
+  assert.strictEqual(game.phase, 'betting', 'Bob n’a pas misé : on attend');
+  game.clearTimers();
+
+  // Manche suivante : les deux en remise automatique → mises posées, distribution lancée.
+  game.phase = 'lobby';
+  game.setAutoRebet('b', { main: 50 });
+  game.startBetting();
+  game.placeAutoBets();
+  assert.strictEqual(alice.hands[0].bet, 100);
+  assert.strictEqual(bob.hands[0].bet, 50);
+  assert.notStrictEqual(game.phase, 'betting', 'tout le monde a misé : distribution');
+  game.clearTimers();
+
+  // Solde insuffisant : la remise automatique se coupe au lieu de miser moins.
+  game.phase = 'lobby';
+  alice.balance = 60;
+  game.startBetting();
+  game.placeAutoBets();
+  assert.strictEqual(alice.betPlaced, false);
+  assert.strictEqual(alice.autoRebet, null);
+  assert.strictEqual(alice.autoRebetStopped, true);
+  game.clearTimers();
+  console.log('✓ remise automatique : rejouée à chaque manche, coupée si solde insuffisant');
+})();
+
 // ---------------------------------------------------------------- modérateur
 
 (() => {

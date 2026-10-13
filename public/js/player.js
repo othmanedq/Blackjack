@@ -59,6 +59,8 @@ const els = {
   betAllin: document.getElementById('bet-allin'),
   betAllinLabel: document.getElementById('bet-allin-label'),
   betRebet: document.getElementById('bet-rebet'),
+  autoRebet: document.getElementById('auto-rebet'),
+  autoRebetLabel: document.getElementById('auto-rebet-label'),
   betRebetLabel: document.getElementById('bet-rebet-label'),
   betActions: document.querySelector('.bet-actions'),
   insurancePanel: document.getElementById('insurance-panel'),
@@ -409,6 +411,42 @@ function sendBet(bet) {
     pending = { main: 0, pairs: 0, trio: 0 };
     betSpot = 'main';
   });
+}
+
+/* ---------------------------- remise automatique ---------------------------- */
+
+els.autoRebet.addEventListener('click', () => {
+  const me = findMe();
+  if (!me) return;
+  sfx.click();
+  // Activée : on coupe. Coupée : on part de la dernière mise confirmée.
+  const bet = me.autoRebet ? null : lastBet;
+  if (!me.autoRebet && !lastBet) return showToast('Place d’abord une mise : c’est elle qui sera remisée.');
+  if (bet && betTotal(bet) > me.balance) return showToast('Solde insuffisant pour remiser automatiquement.');
+  socket.emit('player:autoRebet', { bet }, (res) => {
+    if (res && !res.ok) return showToast(res.message);
+    if (bet) {
+      pending = { main: 0, pairs: 0, trio: 0 };
+      showToast(`Remise auto activée : ${fmt.format(betTotal(bet))} à chaque manche.`, 'win');
+    }
+  });
+});
+
+function renderAutoRebet(me) {
+  const on = !!me.autoRebet;
+  // La mise rejouée par le serveur devient aussi la mise du bouton « Remiser ».
+  if (on && (!lastBet || betTotal(lastBet) !== betTotal(me.autoRebet) || lastBet.main !== me.autoRebet.main)) {
+    lastBet = { ...me.autoRebet };
+    localStorage.setItem('bj_last_bet', JSON.stringify(lastBet));
+  }
+  els.autoRebet.hidden = !on && !(lastBet && lastBet.main >= state.minBet);
+  els.autoRebet.classList.toggle('on', on);
+  els.autoRebet.setAttribute('aria-pressed', String(on));
+  els.autoRebetLabel.textContent = on ? `Remise auto · ${fmt.format(betTotal(me.autoRebet))}` : 'Remise auto';
+  // Coupée par le serveur faute de jetons : on prévient une fois.
+  if (me.autoRebetStopped && prevMe && !prevMe.autoRebetStopped) {
+    showToast('Remise auto coupée : solde insuffisant pour ta mise habituelle.');
+  }
 }
 
 els.betConfirm.addEventListener('click', () => {
@@ -1257,6 +1295,7 @@ function render() {
     : 'Pré-choisis ton coup, il s\'exécutera dès ton tour');
 
   playFeedback(me, myTurn);
+  renderAutoRebet(me);
   prevMe = JSON.parse(JSON.stringify(me));
 }
 

@@ -263,6 +263,15 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Remise automatique : la dernière mise est rejouée à chaque manche.
+  socket.on('player:autoRebet', ({ bet } = {}, ack) => {
+    respond(ack, () => {
+      const token = socketPlayer.get(socket.id);
+      if (!token) throw new Error('Rejoins la partie d’abord.');
+      game.setAutoRebet(token, bet || null);
+    });
+  });
+
   // Réaction (visage) : éphémère, diffusée à tous les écrans, hors état de jeu.
   let lastReactionAt = 0;
   socket.on('player:react', ({ face } = {}, ack) => {

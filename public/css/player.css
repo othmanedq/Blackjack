@@ -1120,3 +1120,26 @@ html, body {
 .mod-adj.minus { background: linear-gradient(180deg, #e74c3c, #a93226); }
 .mod-adj:disabled { opacity: 0.3; pointer-events: none; }
 .mod-adj:active { transform: scale(0.92); }
+
+/* --- remise automatique --- */
+.status-row { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.auto-rebet {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.3em 0.85em;
+  border-radius: 999px;
+  border: 1px dashed rgba(245, 233, 200, 0.35);
+  background: rgba(0, 0, 0, 0.25);
+  color: rgba(245, 233, 200, 0.7);
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.auto-rebet.on {
+  border: 1px solid transparent;
+  background: linear-gradient(180deg, #2ecc71, #1d8a4a);
+  color: #fff;
+  box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.25);
+}

@@ -34,6 +34,7 @@ const DEFAULTS = {
   maxParked: 64, // joueurs au vestiaire conservés (garde-fou mémoire)
   maxSplitHands: 4, // jusqu'à 3 splits (règle courante des casinos)
   rebuyRetryMs: 60000, // délai avant de redemander une re-cave refusée
+  autoBetDelayMs: 1500, // remise automatique : laissé le temps de la couper
 };
 
 // Pseudo : 12 caractères au plus, pour tenir sur une plaque de la table.
@@ -161,7 +162,7 @@ class Game {
     this.resultsEndsAt = null;
     this.insuranceEndsAt = null;
     this.roundNumber = 0;
-    this.timers = { bet: null, turn: null, dealer: null, results: null, insurance: null };
+    this.timers = { bet: null, autoBet: null, turn: null, dealer: null, results: null, insurance: null };
     // Demande de re-cave en attente : { playerId, pending:Set, approved:Set }
     this.rebuyRequest = null;
     // Modérateur permanent (code secret) : chef de table dès qu'il est connecté.
@@ -214,6 +215,8 @@ class Game {
       betPlaced: false,
       inRound: false,
       presetAction: null, // action programmée à l'avance pour le prochain tour
+      autoRebet: null, // remise automatique : { main, pairs, trio } rejouée à chaque manche
+      autoRebetStopped: false, // coupée faute de jetons (le téléphone prévient le joueur)
       insuranceBet: 0,
       insuranceDecided: false,
       insuranceResult: null, // 'win' | 'lose' | null (affichage résultats)
@@ -249,6 +252,7 @@ class Game {
     p.insuranceResult = null;
     p.sideBets = { pairs: 0, trio: 0 };
     p.sideResults = null;
+    p.autoRebet = null; // pas de mise automatique en revenant du vestiaire
     this.parked.set(token, p);
     // Garde-fou mémoire : on ne conserve que les vestiaires les plus récents.
     if (this.parked.size > this.opts.maxParked) {
@@ -349,6 +353,7 @@ class Game {
     this.current = null;
     this.betEndsAt = Date.now() + this.opts.betTimeMs;
     this.timers.bet = setTimeout(() => this.deal(), this.opts.betTimeMs);
+    this.timers.autoBet = setTimeout(() => this.placeAutoBets(), this.opts.autoBetDelayMs);
     this.push();
   }
 
@@ -360,6 +365,14 @@ class Game {
     if (this.phase !== 'betting') throw new Error('Les mises ne sont pas ouvertes.');
     const p = this.players.get(token);
     if (!p) throw new Error('Joueur inconnu.');
+    this.recordBet(p, amount, sideBets);
+    // Remise automatique active : c'est cette nouvelle mise qui sera rejouée.
+    if (p.autoRebet) p.autoRebet = { main: p.hands[0].bet, ...p.sideBets };
+    if (!this.dealIfAllBet()) this.push();
+  }
+
+  /** Valide et pose une mise (principale + annexes), sans lancer la distribution. */
+  recordBet(p, amount, sideBets = {}) {
     if (p.betPlaced) throw new Error('Mise déjà placée.');
     const bet = Math.floor(Number(amount));
     if (!Number.isFinite(bet) || bet < this.opts.minBet) {
@@ -380,7 +393,61 @@ class Game {
     p.betPlaced = true;
     p.inRound = true;
     p.hands = [{ cards: [], bet, status: 'waiting', doubled: false }];
+  }
+
+  /**
+   * Remise automatique : rejoue la mise enregistrée de chaque joueur qui l'a
+   * activée. Toutes les mises sont posées avant de tester la distribution,
+   * sinon le premier joueur servi priverait les suivants de la manche.
+   */
+  placeAutoBets() {
+    if (this.phase !== 'betting') return;
+    for (const p of this.players.values()) {
+      const a = p.autoRebet;
+      if (!a || !p.connected || p.betPlaced) continue;
+      if (a.main + (a.pairs || 0) + (a.trio || 0) > p.balance) {
+        // Jamais de mise réduite en douce : la remise automatique se coupe.
+        p.autoRebet = null;
+        p.autoRebetStopped = true;
+        continue;
+      }
+      try {
+        this.recordBet(p, a.main, { pairs: a.pairs, trio: a.trio });
+      } catch {
+        p.autoRebet = null;
+        p.autoRebetStopped = true;
+      }
+    }
     if (!this.dealIfAllBet()) this.push();
+  }
+
+  /**
+   * Active (bet = { main, pairs, trio }) ou coupe (null) la remise automatique.
+   * Si les mises sont ouvertes et que le joueur n'a pas encore misé, la mise
+   * part tout de suite.
+   */
+  setAutoRebet(token, bet) {
+    const p = this.players.get(token);
+    if (!p) throw new Error('Joueur inconnu.');
+    p.autoRebetStopped = false;
+    if (!bet) {
+      p.autoRebet = null;
+      this.push();
+      return;
+    }
+    const main = Math.floor(Number(bet.main));
+    const pairs = Math.floor(Number(bet.pairs || 0));
+    const trio = Math.floor(Number(bet.trio || 0));
+    if (!Number.isFinite(main) || main < this.opts.minBet) throw new Error(`Mise minimum : ${this.opts.minBet} jetons.`);
+    for (const v of [pairs, trio]) {
+      if (!Number.isFinite(v) || v < 0 || v > main) throw new Error('Pari annexe invalide.');
+    }
+    p.autoRebet = { main, pairs, trio };
+    if (this.phase === 'betting' && !p.betPlaced && p.connected) {
+      this.placeAutoBets();
+      return;
+    }
+    this.push();
   }
 
   /**
@@ -1193,6 +1260,8 @@ class Game {
           insuranceDecided: p.insuranceDecided,
           insuranceResult: p.insuranceResult,
           sideBets: p.sideBets,
+          autoRebet: p.autoRebet,
+          autoRebetStopped: p.autoRebetStopped,
           sideResults: p.sideResults,
           lastNet: p.lastNet,
           rebuyRetryAt: p.rebuyRetryAt,

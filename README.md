@@ -58,6 +58,7 @@ Cette proposition n'est offerte que dans les 20 minutes suivant la déconnexion,
 - Interface **mobile-first**, sans scroll parasite.
 - Lobby : pseudo + avatar + couleur.
 - Mise avec des **jetons tactiles** (10 / 25 / 50 / 100 / 500) ou en un tap avec **All-in** (tout le solde).
+- **Remise auto** : l'interrupteur sous ton statut rejoue ta dernière mise (paris annexes compris) à chaque manche, 1,5 s après l'ouverture des mises — le temps de la couper. C'est le serveur qui remise : ça marche même écran verrouillé, tant que tu restes connecté. Solde insuffisant → elle se coupe et te prévient (jamais de mise réduite en douce). Une mise posée à la main devient la nouvelle mise remisée.
 - **Paris annexes** optionnels : on touche la case « Paires » ou « 21+3 » puis on y pose des jetons (voir plus bas).
 - **Chat** : le bouton bulle en haut ouvre la discussion de la table (pastille rouge = messages non lus). Messages de 200 caractères au plus, 5 messages max toutes les 8 secondes, et les 50 derniers sont renvoyés à qui se connecte. L'écran de la table affiche les messages en fil discret, qui s'effacent seuls. Le chat vit en mémoire : un redémarrage du serveur l'efface.
 - **Réactions** : le bouton visage en haut à droite ouvre 8 expressions ; celle choisie s'affiche en bulle sur ta place, à l'écran de la table et sur les téléphones des autres (une réaction toutes les 1,5 s au plus).
