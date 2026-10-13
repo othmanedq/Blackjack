@@ -46,6 +46,32 @@ socket.on('state', (s) => {
   playTransitionEffects();
 });
 
+/* --------------------------------- chat --------------------------------- */
+
+const chatFeed = document.getElementById('chat-feed');
+const CHAT_FEED_MAX = 6;
+const CHAT_FEED_MS = 14000;
+
+function showChatLine(m) {
+  const line = document.createElement('div');
+  line.className = 'chat-line';
+  line.innerHTML = `
+    <span class="chat-avatar" style="--p-color:${esc(m.color)}">${avatarHtml(m.avatar)}</span>
+    <span class="chat-name"></span>
+    <span class="chat-text"></span>`;
+  line.querySelector('.chat-name').textContent = m.name;
+  line.querySelector('.chat-text').textContent = m.text;
+  chatFeed.appendChild(line);
+  while (chatFeed.children.length > CHAT_FEED_MAX) chatFeed.firstElementChild.remove();
+  setTimeout(() => line.classList.add('fade'), CHAT_FEED_MS);
+  setTimeout(() => line.remove(), CHAT_FEED_MS + 800);
+}
+
+socket.on('chat:message', (m) => {
+  showChatLine(m);
+  sfx.click();
+});
+
 socket.on('reaction', ({ playerId, face } = {}) => {
   showReactionBubble(tableView.plateOf(playerId), face);
 });

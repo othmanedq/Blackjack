@@ -6,6 +6,7 @@ const assert = require('assert');
 const {
   Game, handValue, isNaturalBlackjack, buildShoe, evalPerfectPairs, evalTwentyOnePlusThree,
 } = require('../game/blackjack');
+const { Chat, cleanText } = require('../game/chat');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const c = (rank, suit = '♠') => ({ rank, suit, id: `t-${rank}${suit}-${Math.random()}` });
@@ -28,6 +29,24 @@ console.log('✓ valeurs de mains, blackjack naturel, sabot 6 jeux');
   assert.strictEqual(game.addPlayer({ token: 'x', name: '  Maximilien-Alexandre  ' }).name, 'Maximilien-A');
   assert.strictEqual(game.addPlayer({ token: 'y', name: '     ' }).name, 'Joueur');
   console.log('✓ pseudo limité à 12 caractères, espaces nettoyés');
+})();
+
+// ----------------------------------------------------------------------- chat
+
+(() => {
+  const chat = new Chat({ historySize: 3, burst: 2, windowMs: 1000 });
+  const alice = { id: 'a', name: 'Alice', color: '#fff', avatar: 'spade' };
+  assert.strictEqual(cleanText('  salut\n\ttout   le monde  ', 200), 'salut tout le monde');
+  assert.strictEqual(cleanText('x'.repeat(300), 200).length, 200);
+  assert.throws(() => chat.post(alice, '   '), /vide/i);
+  const m = chat.post(alice, '<b>gg</b>', 0);
+  assert.strictEqual(m.text, '<b>gg</b>', 'le texte est gardé tel quel : l’affichage l’échappe');
+  chat.post(alice, 'deux', 10);
+  assert.throws(() => chat.post(alice, 'trois', 20), /Doucement/, 'anti-flood');
+  chat.post(alice, 'plus tard', 2000); // fenêtre écoulée
+  chat.post({ ...alice, id: 'b' }, 'bob', 2000);
+  assert.deepStrictEqual(chat.history().map((x) => x.text), ['deux', 'plus tard', 'bob'], 'historique borné');
+  console.log('✓ chat : nettoyage, anti-flood, historique borné');
 })();
 
 // ---------------------------------------------------------------- paris annexes

@@ -62,6 +62,10 @@
         <span id="me-name-text"></span>
       </span>
       <span class="me-balance"><i data-icon="chip"></i> <span id="me-balance">0</span></span>
+      <button type="button" class="react-btn chat-btn" id="chat-btn" aria-label="Ouvrir le chat" aria-expanded="false">
+        <i data-icon="chat"></i>
+        <span class="chat-badge" id="chat-badge" hidden>0</span>
+      </button>
       <button type="button" class="react-btn" id="react-btn" aria-label="Réagir" aria-expanded="false">
         <i data-icon="smile"></i>
       </button>
@@ -259,6 +263,23 @@
       <h2 class="display gold-text" id="rebuy-title">Re-cave</h2>
       <div id="rebuy-modal-body"></div>
     </div>
+  </div>
+
+  <!-- Chat textuel de la table -->
+  <div class="chat-sheet" id="chat-sheet" hidden>
+    <div class="chat-head">
+      <span class="chat-title"><i data-icon="chat"></i> Chat de la table</span>
+      <button type="button" class="modal-close chat-close" id="chat-close" aria-label="Fermer le chat">
+        <i data-icon="cross"></i>
+      </button>
+    </div>
+    <div class="chat-list" id="chat-list">
+      <p class="chat-empty" id="chat-empty">Aucun message pour l’instant. Lance la conversation !</p>
+    </div>
+    <form class="chat-form" id="chat-form" autocomplete="off">
+      <input id="chat-input" type="text" maxlength="200" placeholder="Écris un message…" enterkeyhint="send" />
+      <button type="submit" class="chat-send" aria-label="Envoyer"><i data-icon="send"></i></button>
+    </form>
   </div>
 
   <div class="toast" id="toast" hidden></div>

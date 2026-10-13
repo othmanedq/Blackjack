@@ -7,6 +7,7 @@ const express = require('express');
 const { Server } = require('socket.io');
 const QRCode = require('qrcode');
 const { Game } = require('./game/blackjack');
+const { Chat } = require('./game/chat');
 
 const PORT = process.env.PORT || 3000;
 
@@ -148,9 +149,22 @@ if (!publicUrl && !process.env.HOST_IP) {
   }, 5000).unref();
 }
 
+const chat = new Chat();
+
 io.on('connection', (socket) => {
   // Chaque nouvel écran reçoit l'état courant immédiatement.
   socket.emit('state', game.publicState());
+  socket.emit('chat:history', chat.history());
+
+  // Chat textuel : réservé aux joueurs assis, diffusé à tous les écrans.
+  socket.on('player:chat', ({ text } = {}, ack) => {
+    respond(ack, () => {
+      const token = socketPlayer.get(socket.id);
+      const player = token && game.players.get(token);
+      if (!player) throw new Error('Rejoins la partie d’abord.');
+      io.emit('chat:message', chat.post(player, text));
+    });
+  });
 
   socket.on('host:register', () => {
     socket.join('hosts');

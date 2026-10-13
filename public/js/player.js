@@ -35,6 +35,14 @@ const els = {
   betSpots: document.getElementById('bet-spots'),
   sideHelp: document.getElementById('side-help'),
   reactBtn: document.getElementById('react-btn'),
+  chatBtn: document.getElementById('chat-btn'),
+  chatBadge: document.getElementById('chat-badge'),
+  chatSheet: document.getElementById('chat-sheet'),
+  chatList: document.getElementById('chat-list'),
+  chatEmpty: document.getElementById('chat-empty'),
+  chatForm: document.getElementById('chat-form'),
+  chatInput: document.getElementById('chat-input'),
+  chatClose: document.getElementById('chat-close'),
   reactTray: document.getElementById('react-tray'),
   tDealerFace: document.getElementById('t-dealer-face'),
   feltArea: document.getElementById('felt-area'),
@@ -207,6 +215,7 @@ function leaveToLobby(message) {
   pending = { main: 0, pairs: 0, trio: 0 };
   betSpot = 'main';
   closeReactTray();
+  openChat(false);
   els.screenGame.hidden = true;
   els.screenLobby.hidden = false;
   els.joinError.textContent = message || '';
@@ -392,6 +401,87 @@ els.betRebet.addEventListener('click', () => {
   renderBet(me);
 });
 
+/* ---------------------------------- chat ---------------------------------- */
+
+let chatUnread = 0;
+const chatTime = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+function chatIsOpen() {
+  return !els.chatSheet.hidden;
+}
+
+function setChatUnread(n) {
+  chatUnread = n;
+  els.chatBadge.hidden = n === 0;
+  els.chatBadge.textContent = n > 9 ? '9+' : String(n);
+}
+
+function openChat(open) {
+  els.chatSheet.hidden = !open;
+  els.chatBtn.setAttribute('aria-expanded', String(open));
+  if (open) {
+    setChatUnread(0);
+    closeReactTray();
+    els.chatList.scrollTop = els.chatList.scrollHeight;
+    // Pas de focus automatique sur téléphone : le clavier masquerait les messages.
+    if (window.matchMedia('(hover: hover)').matches) els.chatInput.focus();
+  }
+}
+
+/** Ajoute un message ; le texte passe par textContent, jamais par innerHTML. */
+function appendChatMessage(m) {
+  const nearBottom = els.chatList.scrollHeight - els.chatList.scrollTop - els.chatList.clientHeight < 60;
+  els.chatEmpty.hidden = true;
+  const row = document.createElement('div');
+  row.className = `chat-msg${m.playerId === token ? ' mine' : ''}`;
+  row.innerHTML = `
+    <span class="chat-avatar" style="--p-color:${esc(m.color)}">${avatarHtml(m.avatar)}</span>
+    <div class="chat-bubble">
+      <div class="chat-meta"><span class="chat-name"></span><span class="chat-time"></span></div>
+      <p class="chat-text"></p>
+    </div>`;
+  row.querySelector('.chat-name').textContent = m.name;
+  row.querySelector('.chat-time').textContent = chatTime.format(new Date(m.at));
+  row.querySelector('.chat-text').textContent = m.text;
+  els.chatList.appendChild(row);
+  // On garde les 100 derniers messages à l'écran.
+  while (els.chatList.querySelectorAll('.chat-msg').length > 100) {
+    els.chatList.querySelector('.chat-msg').remove();
+  }
+  if (nearBottom || m.playerId === token) els.chatList.scrollTop = els.chatList.scrollHeight;
+}
+
+// Historique envoyé à chaque (re)connexion : on repart de zéro pour éviter les doublons.
+socket.on('chat:history', (messages = []) => {
+  els.chatList.querySelectorAll('.chat-msg').forEach((el) => el.remove());
+  els.chatEmpty.hidden = messages.length > 0;
+  messages.forEach(appendChatMessage);
+});
+
+socket.on('chat:message', (m) => {
+  appendChatMessage(m);
+  if (m.playerId !== token && !chatIsOpen()) {
+    setChatUnread(chatUnread + 1);
+    sfx.click();
+  }
+});
+
+els.chatBtn.addEventListener('click', () => {
+  sfx.click();
+  openChat(!chatIsOpen());
+});
+els.chatClose.addEventListener('click', () => openChat(false));
+
+els.chatForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const text = els.chatInput.value.trim();
+  if (!text) return;
+  socket.emit('player:chat', { text }, (res) => {
+    if (res && !res.ok) return showToast(res.message);
+    els.chatInput.value = '';
+  });
+});
+
 /* ------------------------------- réactions -------------------------------- */
 
 els.reactTray.innerHTML = FACES.map((f) =>
@@ -405,6 +495,7 @@ function closeReactTray() {
 
 els.reactBtn.addEventListener('click', () => {
   sfx.click();
+  if (chatIsOpen()) openChat(false);
   const open = els.reactTray.hidden;
   els.reactTray.hidden = !open;
   els.reactBtn.setAttribute('aria-expanded', String(open));

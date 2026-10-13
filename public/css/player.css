@@ -831,3 +831,153 @@ html, body {
   color: rgba(245, 233, 200, 0.7);
   margin-bottom: 14px;
 }
+
+/* =============================== chat =============================== */
+
+.chat-btn { position: relative; }
+.chat-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--lose);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  box-shadow: 0 0 0 2px var(--felt-dark);
+}
+
+.chat-sheet {
+  position: fixed;
+  z-index: 70;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: min(70dvh, 560px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px 18px 0 0;
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  border-bottom: none;
+  background: linear-gradient(180deg, #10261a, #06100b);
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.6);
+  animation: sheet-in 0.22s ease;
+}
+@keyframes sheet-in { from { transform: translateY(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.chat-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 14px 54px 10px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.chat-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(245, 233, 200, 0.75);
+}
+.chat-close { top: 8px; }
+
+.chat-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overscroll-behavior: contain;
+}
+.chat-empty { margin: auto; text-align: center; font-size: 0.88rem; color: rgba(245, 233, 200, 0.55); }
+
+.chat-msg { display: flex; align-items: flex-end; gap: 8px; max-width: 88%; }
+.chat-msg.mine { align-self: flex-end; flex-direction: row-reverse; }
+.chat-avatar {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.85rem;
+  background: var(--p-color, var(--gold));
+}
+.chat-bubble {
+  min-width: 0;
+  padding: 7px 11px 8px;
+  border-radius: 14px 14px 14px 4px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.chat-msg.mine .chat-bubble {
+  border-radius: 14px 14px 4px 14px;
+  background: linear-gradient(180deg, rgba(212, 175, 55, 0.24), rgba(212, 175, 55, 0.14));
+  border-color: rgba(212, 175, 55, 0.35);
+}
+.chat-meta { display: flex; gap: 8px; align-items: baseline; margin-bottom: 2px; }
+.chat-name { font-size: 0.74rem; font-weight: 800; color: var(--gold-bright); }
+.chat-time { font-size: 0.66rem; color: rgba(245, 233, 200, 0.45); font-variant-numeric: tabular-nums; }
+.chat-text {
+  font-size: 0.94rem;
+  line-height: 1.35;
+  color: var(--cream);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.chat-form {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px max(12px, env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+.chat-form input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-ui);
+  font-size: 1rem; /* 16px : évite le zoom automatique d'iOS */
+  padding: 11px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--cream);
+  outline: none;
+}
+.chat-form input:focus { border-color: var(--gold-bright); }
+.chat-send {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.15rem;
+  color: #14200f;
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+}
+
+/* Ordinateur / tablette : un panneau flottant à droite plutôt qu'un tiroir plein écran */
+@media (min-width: 700px) and (min-height: 520px) {
+  .chat-sheet {
+    left: auto;
+    right: 20px;
+    bottom: 20px;
+    width: 380px;
+    height: min(70dvh, 600px);
+    border-radius: 18px;
+    border-bottom: 1px solid rgba(212, 175, 55, 0.4);
+  }
+}
