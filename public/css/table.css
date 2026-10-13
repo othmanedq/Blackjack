@@ -528,3 +528,4 @@
 @keyframes side-win { 50% { box-shadow: 0 0 2.4cqw rgba(243, 216, 120, 0.9); } }
 .side-spot.lost { opacity: 0.55; }
 .side-spot.lost .side-pill { color: var(--lose); border-color: rgba(255, 92, 92, 0.45); }
+.seat-balance .prebuys { font-size: 0.78em; color: rgba(245, 233, 200, 0.55); margin-left: 0.3em; }

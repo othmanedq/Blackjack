@@ -215,7 +215,8 @@ async function untilShowdown(game, maxMs = 3000) {
 
   // ------------------------------------------------ propriété : des mains au hasard ne créent ni ne perdent de jetons
   {
-    const { game } = table(5, { runoutDelayMs: 0 });
+    // Recaves illimitées ici : on veut 400 mains, pas tester le plafond.
+    const { game } = table(5, { runoutDelayMs: 0, maxRebuys: Infinity });
     let expected = 5000; // 5 × 1 000, plus chaque recave
     let hands = 0;
     for (let i = 0; i < 400; i++) {
@@ -255,6 +256,19 @@ async function untilShowdown(game, maxMs = 3000) {
     }
     game.clearTimers();
     console.log(`✓ poker : ${hands} mains jouées au hasard, aucun jeton créé ni perdu`);
+  }
+
+  // ------------------------------------------------ 3 recaves au plus
+  {
+    const { game, ps: [a] } = table(2);
+    for (let i = 0; i < 3; i++) {
+      a.stack = 0;
+      game.rebuy('a');
+    }
+    assert.strictEqual(a.rebuys, 3);
+    a.stack = 0;
+    assert.throws(() => game.rebuy('a'), /3 recaves/);
+    console.log('✓ poker : recaves plafonnées à 3 par joueur');
   }
 
   console.log('✓ tous les tests de poker passent');

@@ -528,6 +528,18 @@ console.log('✓ paris annexes : Perfect Pairs et 21+3');
   assert.strictEqual(alice.balance, 1000, 're-cave automatique, sans vote');
   assert.strictEqual(game.rebuyRequest, null);
   console.log('✓ modérateur : jetons ajoutés/retirés, re-caves tranchées ou automatiques');
+
+  // Plafond : 3 re-caves par joueur, quelle que soit la voie (ici : automatique).
+  // Alice en a déjà eu 2 (une tranchée par le modérateur, une automatique).
+  assert.strictEqual(alice.rebuys, 2);
+  alice.balance = 0;
+  game.requestRebuy('a');
+  assert.strictEqual(alice.rebuys, 3, 'la 3e re-cave passe encore');
+  alice.balance = 0;
+  assert.throws(() => game.requestRebuy('a'), /3 re-caves/);
+  assert.strictEqual(alice.balance, 0);
+  assert.strictEqual(game.adjustBalance('m', 'a', 500), 500, 'le modérateur peut toujours ajouter des jetons');
+  console.log('✓ re-caves plafonnées à 3 par joueur');
 })();
 
 // ---------------------------------------------------------- quitter la table

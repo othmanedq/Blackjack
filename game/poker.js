@@ -30,6 +30,7 @@ const DEFAULTS = {
   resultsTimeMs: 7000,
   runoutDelayMs: 1100,  // pause entre deux cartes quand tout le monde est à tapis
   maxParked: 64,
+  maxRebuys: 3, // recaves autorisées par joueur (le modérateur peut toujours ajouter des jetons)
 };
 
 // Blindes proposées au chef de table : [petite, grosse].
@@ -226,12 +227,13 @@ class PokerGame {
     this.push();
   }
 
-  /** Recave libre (comptée) : seulement à sec et hors d'une main. */
+  /** Recave (3 au plus par joueur) : seulement à sec et hors d'une main. */
   rebuy(token) {
     const p = this.players.get(token);
     if (!p) throw new Error('Joueur inconnu.');
     if (p.stack > 0) throw new Error('Tu as encore des jetons.');
     if (p.inHand && this.isBetting()) throw new Error('Attends la fin de la main.');
+    if (p.rebuys >= this.opts.maxRebuys) throw new Error(`Tu as déjà utilisé tes ${this.opts.maxRebuys} recaves.`);
     p.stack = this.opts.startingStack;
     p.rebuys += 1;
     this.push();
@@ -685,6 +687,7 @@ class PokerGame {
       smallBlind: this.opts.smallBlind,
       bigBlind: this.opts.bigBlind,
       startingStack: this.opts.startingStack,
+      maxRebuys: this.opts.maxRebuys,
       blindLevels: BLIND_LEVELS,
       canConfigure: !this.configured,
       hostPlayerId: this.hostPlayerId(),

@@ -250,7 +250,8 @@ function createTableView(root, opts = {}) {
       const sign = p.lastNet > 0 ? '+' : '−';
       deltaHtml = ` <span class="delta ${cls}">${sign}${fmt.format(Math.abs(p.lastNet))}</span>`;
     }
-    const balHtml = `${iconHtml('chip')} ${fmt.format(p.balance)}${deltaHtml}`;
+    const rebuys = p.rebuys ? ` <span class="prebuys" title="Re-caves">↻${p.rebuys}</span>` : '';
+    const balHtml = `${iconHtml('chip')} ${fmt.format(p.balance)}${deltaHtml}${rebuys}`;
     const bal = seat.querySelector('.seat-balance');
     if (bal.innerHTML !== balHtml) bal.innerHTML = balHtml;
 

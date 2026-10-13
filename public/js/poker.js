@@ -442,7 +442,11 @@ function render() {
 
   const betweenHands = !['preflop', 'flop', 'turn', 'river'].includes(state.phase);
   els.rebuyBtn.hidden = !(me.stack === 0 && (betweenHands || !me.inHand || me.folded));
-  els.rebuyBtn.innerHTML = `${iconHtml('chipPlus')} Se recaver (${fmt.format(state.startingStack)})`;
+  const left = state.maxRebuys - me.rebuys;
+  els.rebuyBtn.disabled = left <= 0;
+  els.rebuyBtn.innerHTML = left > 0
+    ? `${iconHtml('chipPlus')} Se recaver — ${fmt.format(state.startingStack)} (${me.rebuys + 1}/${state.maxRebuys})`
+    : `Plus de recave (${state.maxRebuys}/${state.maxRebuys})`;
   els.kickBtn.hidden = !(isChef() && betweenHands && state.players.length > 1);
   renderChatPeek();
 }

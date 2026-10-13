@@ -34,6 +34,7 @@ const DEFAULTS = {
   maxParked: 64, // joueurs au vestiaire conservés (garde-fou mémoire)
   maxSplitHands: 4, // jusqu'à 3 splits (règle courante des casinos)
   rebuyRetryMs: 60000, // délai avant de redemander une re-cave refusée
+  maxRebuys: 3, // re-caves autorisées par joueur (le modérateur peut toujours ajouter des jetons)
   autoBetDelayMs: 1500, // remise automatique : laissé le temps de la couper
 };
 
@@ -224,6 +225,7 @@ class Game {
       sideResults: null, // { pairs, trio } : { label, mult, win } | null, réglés à la distribution
       lastNet: 0,      // gain/perte de la dernière manche (affichage table)
       rebuyRetryAt: 0, // re-cave refusée : nouvelle demande possible à partir de cet instant
+      rebuys: 0, // re-caves déjà accordées (plafond : opts.maxRebuys)
       joinedAt: Date.now(),
     };
     this.players.set(token, player);
@@ -963,6 +965,9 @@ class Game {
     if (!p) throw new Error('Joueur inconnu.');
     if (p.balance >= this.opts.minBet) throw new Error('Tu as encore des jetons.');
     if (this.rebuyRequest) throw new Error('Une demande de re-cave est déjà en cours.');
+    if ((p.rebuys || 0) >= this.opts.maxRebuys) {
+      throw new Error(`Tu as déjà utilisé tes ${this.opts.maxRebuys} re-caves.`);
+    }
     if (p.rebuyRetryAt && Date.now() < p.rebuyRetryAt) {
       const s = Math.ceil((p.rebuyRetryAt - Date.now()) / 1000);
       throw new Error(`Ta re-cave vient d’être refusée : réessaie dans ${s} s.`);
@@ -971,15 +976,9 @@ class Game {
       .filter((x) => x.connected && x.id !== token)
       .map((x) => x.id);
     // Re-cave automatique (réglage du modérateur), ou demandée par le modérateur lui-même.
-    if (this.autoRebuy || token === this.moderatorId) {
-      p.balance = this.opts.startingBalance;
-      p.rebuyRetryAt = 0;
-      this.push();
-      return;
-    }
-    if (voters.length === 0) {
-      // Seul à la table : rien à voter.
-      p.balance = this.opts.startingBalance;
+    if (this.autoRebuy || token === this.moderatorId || voters.length === 0) {
+      // Sans vote : re-cave automatique, demandée par le modérateur, ou joueur seul à la table.
+      this.creditRebuy(p);
       this.push();
       return;
     }
@@ -1036,11 +1035,15 @@ class Game {
     const r = this.rebuyRequest;
     if (!r) return;
     const p = this.players.get(r.playerId);
-    if (p) {
-      p.balance = this.opts.startingBalance;
-      p.rebuyRetryAt = 0;
-    }
+    if (p) this.creditRebuy(p);
     this.rebuyRequest = null;
+  }
+
+  /** Crédite une re-cave et la compte (plafond vérifié à la demande). */
+  creditRebuy(p) {
+    p.balance = this.opts.startingBalance;
+    p.rebuyRetryAt = 0;
+    p.rebuys = (p.rebuys || 0) + 1;
   }
 
   denyRebuy() {
@@ -1216,6 +1219,7 @@ class Game {
       hostPlayerId: this.hostPlayerId(),
       moderatorId: this.moderatorId,
       autoRebuy: this.autoRebuy,
+      maxRebuys: this.opts.maxRebuys,
       mode: this.mode,
       startingBalance: this.opts.startingBalance,
       canConfigure: this.phase === 'lobby' && this.roundNumber === 0,
@@ -1265,6 +1269,7 @@ class Game {
           sideResults: p.sideResults,
           lastNet: p.lastNet,
           rebuyRetryAt: p.rebuyRetryAt,
+          rebuys: p.rebuys || 0,
           isTurn: !!(this.current && this.current.playerId === p.id),
           turnHandIndex: this.current && this.current.playerId === p.id ? this.current.handIndex : null,
           hands: p.hands.map((h) => {
