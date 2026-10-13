@@ -70,6 +70,8 @@ const els = {
   menuChatCount: $('menu-chat-count'),
   menuMod: $('menu-mod'),
   toast: $('toast'),
+  voteModal: $('vote-modal'),
+  voteBody: $('vote-body'),
 };
 
 /* ------------------------------- identité ------------------------------- */
@@ -441,12 +443,7 @@ function render() {
   els.startBtn.innerHTML = `${iconHtml('play')} ${state.handNumber ? 'Relancer la partie' : 'Lancer la partie'}`;
 
   const betweenHands = !['preflop', 'flop', 'turn', 'river'].includes(state.phase);
-  els.rebuyBtn.hidden = !(me.stack === 0 && (betweenHands || !me.inHand || me.folded));
-  const left = state.maxRebuys - me.rebuys;
-  els.rebuyBtn.disabled = left <= 0;
-  els.rebuyBtn.innerHTML = left > 0
-    ? `${iconHtml('chipPlus')} Se recaver — ${fmt.format(state.startingStack)} (${me.rebuys + 1}/${state.maxRebuys})`
-    : `Plus de recave (${state.maxRebuys}/${state.maxRebuys})`;
+  renderRebuy(me, betweenHands);
   els.kickBtn.hidden = !(isChef() && betweenHands && state.players.length > 1);
   renderChatPeek();
 }
@@ -562,6 +559,70 @@ function renderRaise() {
   const verb = state.currentBet === 0 ? 'Miser' : 'Relancer';
   els.raiseBtn.textContent = raiseTo >= you.maxRaiseTo ? `Tapis ${fmt.format(raiseTo)}` : `${verb} à ${fmt.format(raiseTo)}`;
 }
+
+/* ------------------------------ recave & vote ------------------------------ */
+
+let rebuyTimer = null;
+
+/** Bouton de recave : automatique pour les 3 premières, puis vote des autres. */
+function renderRebuy(me, betweenHands) {
+  const r = state.rebuyRequest;
+  const broke = me.stack === 0 && (betweenHands || !me.inHand || me.folded);
+  const freeLeft = Math.max(0, state.freeRebuys - me.rebuys);
+  const waitMs = Math.max(0, (me.rebuyRetryAt || 0) - clock.now());
+  els.rebuyBtn.hidden = !broke;
+  els.rebuyBtn.disabled = !!r || waitMs > 0;
+  if (r && r.playerId === me.id) {
+    els.rebuyBtn.textContent = `Vote en cours : ${r.approved}/${r.needed} oui nécessaires…`;
+  } else if (waitMs > 0) {
+    els.rebuyBtn.textContent = `Recave refusée — nouvelle demande dans ${Math.ceil(waitMs / 1000)} s`;
+    clearTimeout(rebuyTimer);
+    rebuyTimer = setTimeout(render, Math.min(waitMs, 1000));
+  } else if (freeLeft > 0) {
+    els.rebuyBtn.innerHTML = `${iconHtml('chipPlus')} Se recaver — ${fmt.format(state.startingStack)} (encore ${freeLeft} automatique${freeLeft > 1 ? 's' : ''})`;
+  } else {
+    els.rebuyBtn.innerHTML = `${iconHtml('chipPlus')} Demander une recave (vote des joueurs)`;
+  }
+
+  // Modale de vote chez les autres joueurs (le modérateur tranche seul).
+  const voter = !!(r && r.awaiting.includes(me.id));
+  if (voter && els.voteModal.hidden) {
+    sfx.turn();
+    if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
+  }
+  els.voteModal.hidden = !voter;
+  if (!voter) return;
+  const mod = isModerator();
+  const html = `
+    <p class="modal-text"><strong>${esc(r.playerName)}</strong> n’a plus de jetons et demande une recave de
+      <strong>${fmt.format(r.amount)}</strong> (ses 3 recaves automatiques sont utilisées).</p>
+    <div class="rebuy-progress"><i style="width:${Math.min(100, (r.approved / r.needed) * 100)}%"></i></div>
+    <p class="rebuy-count">${r.approved}/${r.needed} oui nécessaires · ${r.refused} non</p>
+    <p class="rebuy-note">${mod ? 'Tu es modérateur : ta décision est définitive.' : 'La majorité décide. Un refus ne l’exclut pas.'}</p>
+    <div class="rebuy-actions">
+      <button type="button" class="rebuy-yes" data-vote="yes">${iconHtml('check')} Accepter</button>
+      <button type="button" class="rebuy-no" data-vote="no">${iconHtml('cross')} Refuser</button>
+    </div>`;
+  if (els.voteBody.innerHTML !== html) els.voteBody.innerHTML = html;
+}
+
+els.voteBody.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-vote]');
+  if (!b) return;
+  const accept = b.dataset.vote === 'yes';
+  const event = isModerator() ? 'mod:decideRebuy' : 'player:voteRebuy';
+  socket.emit(event, { accept }, (res) => res && !res.ok && showToast(res.message));
+});
+
+socket.on('player:rebuyResult', ({ outcome } = {}) => {
+  if (outcome === 'granted') {
+    showToast('Recave acceptée : te revoilà dans la partie !', 'win');
+    sfx.win();
+  } else {
+    showToast('La majorité a refusé ta recave. Tu pourras redemander dans une minute.');
+    sfx.lose();
+  }
+});
 
 /* ------------------------- sons, vibreur, minuterie ------------------------- */
 

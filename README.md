@@ -20,7 +20,7 @@ Le serveur ouvre **deux tables en même temps**. La page d'accueil (`/`) propose
 - **Sur ordinateur ou tablette** : la table ovale complète, ta place toujours en bas.
 - **Bouton « ? »** : le classement des mains, de la quinte flush royale à la carte haute.
 - **Temps de parole** : 30 s, puis check si possible, sinon on se couche. Un joueur déconnecté ne bloque jamais la table.
-- **À sec** : bouton « Se recaver » entre deux mains, **3 recaves au plus** ; le nombre de recaves est affiché sur la plaque (↻2).
+- **À sec** : bouton « Se recaver » entre deux mains. Les **3 premières recaves sont automatiques**, ensuite la majorité des autres joueurs vote (une minute d'attente après un refus, le modérateur peut trancher seul). Le nombre de recaves est affiché sur la plaque (↻2).
 - Chat, réactions, modérateur (ajout/retrait de jetons), exclusion et départ fonctionnent comme au blackjack, sur une table séparée.
 
 ## Démarrage rapide
@@ -150,7 +150,7 @@ Si un joueur se retrouve à sec (solde sous la mise minimum) :
 
 Un joueur qui se déconnecte pendant un vote ne le bloque pas : la majorité se recalcule sur les votants restants.
 
-**3 re-caves au plus par joueur**, dans chaque jeu (compteurs séparés), quelle que soit la voie : vote, re-cave automatique, décision du modérateur. Le compteur suit le joueur s'il quitte la table et revient ; il est affiché sur sa plaque (↻2). Le modérateur peut toujours ajouter des jetons à la main.
+**Les 3 premières re-caves de chaque joueur sont automatiques** (sans vote), dans chaque jeu (compteurs séparés). **À partir de la 4e**, la majorité des autres joueurs doit accepter, comme ci-dessus. Le compteur suit le joueur s'il quitte la table et revient ; il est affiché sur sa plaque (↻2).
 
 ## Structure du projet
 

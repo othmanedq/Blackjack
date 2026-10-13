@@ -216,7 +216,7 @@ async function untilShowdown(game, maxMs = 3000) {
   // ------------------------------------------------ propriété : des mains au hasard ne créent ni ne perdent de jetons
   {
     // Recaves illimitées ici : on veut 400 mains, pas tester le plafond.
-    const { game } = table(5, { runoutDelayMs: 0, maxRebuys: Infinity });
+    const { game } = table(5, { runoutDelayMs: 0, freeRebuys: Infinity });
     let expected = 5000; // 5 × 1 000, plus chaque recave
     let hands = 0;
     for (let i = 0; i < 400; i++) {
@@ -258,17 +258,33 @@ async function untilShowdown(game, maxMs = 3000) {
     console.log(`✓ poker : ${hands} mains jouées au hasard, aucun jeton créé ni perdu`);
   }
 
-  // ------------------------------------------------ 3 recaves au plus
+  // ------------------------------------------------ recaves : 3 automatiques, puis vote
   {
-    const { game, ps: [a] } = table(2);
+    const { game, ps: [a] } = table(3);
     for (let i = 0; i < 3; i++) {
       a.stack = 0;
-      game.rebuy('a');
+      assert.strictEqual(game.rebuy('a'), 'granted', `recave ${i + 1} : automatique`);
     }
-    assert.strictEqual(a.rebuys, 3);
     a.stack = 0;
-    assert.throws(() => game.rebuy('a'), /3 recaves/);
-    console.log('✓ poker : recaves plafonnées à 3 par joueur');
+    assert.strictEqual(game.rebuy('a'), 'vote', '4e recave : vote des autres joueurs');
+    assert.strictEqual(game.stateFor('b').rebuyRequest.needed, 2, '2 votants : il faut 2 oui');
+    game.voteRebuy('b', true);
+    assert.strictEqual(game.voteRebuy('c', false).outcome, 'denied', '1 oui sur 2 : refusée');
+    assert.strictEqual(a.stack, 0);
+    assert.throws(() => game.rebuy('a'), /réessaie dans/, 'une minute avant de redemander');
+    a.rebuyRetryAt = 0;
+    game.rebuy('a');
+    game.voteRebuy('b', true);
+    assert.strictEqual(game.voteRebuy('c', true).outcome, 'granted');
+    assert.strictEqual(a.stack, 1000);
+    assert.strictEqual(a.rebuys, 4);
+    // Un votant qui part ne bloque pas le vote.
+    a.stack = 0;
+    game.rebuy('a');
+    game.voteRebuy('b', true);
+    game.disconnectPlayer('c');
+    assert.strictEqual(a.stack, 1000, 'la majorité se recalcule sans le joueur parti');
+    console.log('✓ poker : 3 recaves automatiques, puis vote à la majorité');
   }
 
   console.log('✓ tous les tests de poker passent');

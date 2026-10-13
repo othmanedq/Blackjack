@@ -102,6 +102,18 @@ function setupPoker({ io, isAdminKey, joinUrl, qrFor, clientIp, reactions, react
 
     socket.on('player:rebuy', (ack) => respond(ack, () => game.rebuy(requireMe())));
 
+    /** Prévient le demandeur du verdict du vote. */
+    const notifyRebuy = ({ outcome, requester }) => {
+      if (!outcome) return;
+      for (const [sid, t] of socketPlayer) if (t === requester) ns.to(sid).emit('player:rebuyResult', { outcome });
+    };
+    socket.on('player:voteRebuy', ({ accept } = {}, ack) => {
+      respond(ack, () => notifyRebuy(game.voteRebuy(requireMe(), !!accept)));
+    });
+    socket.on('mod:decideRebuy', ({ accept } = {}, ack) => {
+      respond(ack, () => notifyRebuy(game.decideRebuy(me(), !!accept)));
+    });
+
     socket.on('player:leave', (ack) => {
       respond(ack, () => {
         const token = requireMe();

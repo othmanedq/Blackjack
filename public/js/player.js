@@ -854,28 +854,26 @@ function renderRebuy(me) {
   } else if (isBroke && !me.inRound && retryMs > 0) {
     panel = `<p class="rebuy-text">${iconHtml('clock')} Re-cave refusée : nouvelle demande possible
       dans ${Math.ceil(retryMs / 1000)} s.</p>`;
-  } else if (isBroke && !me.inRound && (me.rebuys || 0) >= state.maxRebuys && !rebuyDismissed) {
-    // Plus de re-cave possible : on le dit clairement, sans bouton de demande.
-    modal = `<p class="modal-text">Tu as utilisé tes <strong>${state.maxRebuys} re-caves</strong>.</p>
-      <p class="rebuy-note">Tu peux rester à la table et recevoir des jetons d'un autre joueur, ou la quitter.</p>
-      <div class="modal-actions">
-        <button type="button" class="cta" data-rebuy="later">D'accord</button>
-      </div>`;
-  } else if (isBroke && !me.inRound && (me.rebuys || 0) >= state.maxRebuys) {
-    panel = `<p class="rebuy-text">${iconHtml('cross')} Plus de re-cave possible (${state.maxRebuys}/${state.maxRebuys}).</p>`;
   } else if (isBroke && !me.inRound && !rebuyDismissed) {
-    modal = `<p class="modal-text">Tu n'as plus assez de jetons pour miser.<br>
-        Demande une re-cave de <strong>${fmt.format(state.startingBalance)}</strong> aux autres joueurs.</p>
-      <p class="rebuy-note">La majorité des autres joueurs doit accepter. En cas de refus, tu restes à la table.</p>
+    // Les 3 premières re-caves sont automatiques ; ensuite les autres votent.
+    const freeLeft = Math.max(0, state.freeRebuys - (me.rebuys || 0));
+    modal = freeLeft > 0
+      ? `<p class="modal-text">Tu n'as plus assez de jetons pour miser.<br>
+          Re-cave de <strong>${fmt.format(state.startingBalance)}</strong> jetons, accordée tout de suite.</p>
+        <p class="rebuy-note">Encore ${freeLeft} re-cave${freeLeft > 1 ? 's' : ''} automatique${freeLeft > 1 ? 's' : ''} ; ensuite, les autres joueurs voteront.</p>`
+      : `<p class="modal-text">Tu n'as plus assez de jetons pour miser.<br>
+          Demande une re-cave de <strong>${fmt.format(state.startingBalance)}</strong> aux autres joueurs.</p>
+        <p class="rebuy-note">Tes ${state.freeRebuys} re-caves automatiques sont utilisées : la majorité doit accepter. En cas de refus, tu restes à la table.</p>`;
+    modal += `
       <div class="modal-actions">
         <button type="button" class="cta rebuy-request" data-rebuy="request">
-          ${iconHtml('chipPlus')} Demander une re-cave (${(me.rebuys || 0) + 1}/${state.maxRebuys})
+          ${iconHtml('chipPlus')} ${freeLeft > 0 ? 'Se recaver' : 'Demander une re-cave'}
         </button>
         <button type="button" class="ghost-btn" data-rebuy="later">Pas maintenant</button>
       </div>`;
   } else if (isBroke && !me.inRound) {
     panel = `<button type="button" class="cta rebuy-request" data-rebuy="open">
-      ${iconHtml('chipPlus')} Demander une re-cave (${(me.rebuys || 0) + 1}/${state.maxRebuys})
+      ${iconHtml('chipPlus')} ${(me.rebuys || 0) < state.freeRebuys ? 'Se recaver' : 'Demander une re-cave'} (${fmt.format(state.startingBalance)})
     </button>`;
   }
 

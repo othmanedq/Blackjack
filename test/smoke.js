@@ -103,7 +103,8 @@ console.log('✓ paris annexes : Perfect Pairs et 21+3');
 // ------------------------------------------------- cave de départ & re-cave
 
 (() => {
-  const game = new Game(() => {}, { betTimeMs: 100000, turnTimeMs: 100000 });
+  // freeRebuys: 0 : on teste ici le vote lui-même, sans re-caves automatiques.
+  const game = new Game(() => {}, { betTimeMs: 100000, turnTimeMs: 100000, freeRebuys: 0 });
   const alice = game.addPlayer({ token: 'a', name: 'Alice' });
   const bob = game.addPlayer({ token: 'b', name: 'Bob' });
   const carl = game.addPlayer({ token: 'c', name: 'Carl' });
@@ -496,7 +497,7 @@ console.log('✓ paris annexes : Perfect Pairs et 21+3');
 // ---------------------------------------------------------------- modérateur
 
 (() => {
-  const game = new Game(() => {});
+  const game = new Game(() => {}, { freeRebuys: 0 });
   game.addPlayer({ token: 'a', name: 'Alice' });
   game.addPlayer({ token: 'b', name: 'Bob' });
   game.addPlayer({ token: 'm', name: 'Moi' });
@@ -529,17 +530,22 @@ console.log('✓ paris annexes : Perfect Pairs et 21+3');
   assert.strictEqual(game.rebuyRequest, null);
   console.log('✓ modérateur : jetons ajoutés/retirés, re-caves tranchées ou automatiques');
 
-  // Plafond : 3 re-caves par joueur, quelle que soit la voie (ici : automatique).
-  // Alice en a déjà eu 2 (une tranchée par le modérateur, une automatique).
-  assert.strictEqual(alice.rebuys, 2);
+  // Règle normale : les 3 premières re-caves sont automatiques ; la 4e passe par un vote.
+  game.opts.freeRebuys = 3;
+  game.setAutoRebuy('m', false);
+  assert.strictEqual(alice.rebuys, 2, 'Alice en a déjà eu 2 (tranchée puis automatique)');
   alice.balance = 0;
   game.requestRebuy('a');
-  assert.strictEqual(alice.rebuys, 3, 'la 3e re-cave passe encore');
+  assert.strictEqual(alice.rebuys, 3, '3e re-cave : automatique, sans vote');
+  assert.strictEqual(game.rebuyRequest, null);
   alice.balance = 0;
-  assert.throws(() => game.requestRebuy('a'), /3 re-caves/);
+  game.requestRebuy('a');
+  assert.ok(game.rebuyRequest, '4e re-cave : il faut un vote');
   assert.strictEqual(alice.balance, 0);
-  assert.strictEqual(game.adjustBalance('m', 'a', 500), 500, 'le modérateur peut toujours ajouter des jetons');
-  console.log('✓ re-caves plafonnées à 3 par joueur');
+  game.voteRebuy('b', true);
+  game.decideRebuy('m', true);
+  assert.strictEqual(alice.rebuys, 4, 'au-delà de 3, accordée après vote ou décision du modérateur');
+  console.log('✓ re-caves : 3 automatiques, puis vote à la majorité');
 })();
 
 // ---------------------------------------------------------- quitter la table

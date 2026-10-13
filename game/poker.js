@@ -30,7 +30,8 @@ const DEFAULTS = {
   resultsTimeMs: 7000,
   runoutDelayMs: 1100,  // pause entre deux cartes quand tout le monde est à tapis
   maxParked: 64,
-  maxRebuys: 3, // recaves autorisées par joueur (le modérateur peut toujours ajouter des jetons)
+  freeRebuys: 3,        // recaves automatiques par joueur ; au-delà, vote à la majorité
+  rebuyRetryMs: 60000,  // délai avant de redemander une recave refusée
 };
 
 // Blindes proposées au chef de table : [petite, grosse].
@@ -81,6 +82,7 @@ class PokerGame {
     this.timers = { turn: null, runout: null, results: null };
     this.moderatorId = null;
     this.configured = false; // tapis et blindes verrouillés après la 1re main
+    this.rebuyRequest = null; // vote de recave en cours : { playerId, pending, approved, refused }
   }
 
   // ------------------------------------------------------------------ joueurs
@@ -104,6 +106,7 @@ class PokerGame {
       avatar: avatar || 'spade',
       stack: this.opts.startingStack,
       rebuys: 0,
+      rebuyRetryAt: 0,
       ip: null,
       joinedAt: Date.now(),
     };
@@ -137,6 +140,7 @@ class PokerGame {
     if (!p) return;
     this.seats[p.seat] = null;
     this.players.delete(token);
+    this.cleanupRebuyAfterLeave(token);
     if (keepStack) {
       this.parked.set(token, p);
       if (this.parked.size > this.opts.maxParked) {
@@ -151,6 +155,8 @@ class PokerGame {
     if (!p) return;
     p.connected = false;
     p.disconnectedAt = Date.now();
+    // Un absent ne doit pas bloquer un vote de recave.
+    this.cleanupRebuyAfterLeave(token);
     // Son tour : on joue pour lui (parole si possible, sinon passe) pour ne pas bloquer la table.
     if (this.isBetting() && this.seats[this.toAct] === token) {
       this.autoAct(p);
@@ -227,18 +233,109 @@ class PokerGame {
     this.push();
   }
 
-  /** Recave (3 au plus par joueur) : seulement à sec et hors d'une main. */
+  /**
+   * Recave, seulement à sec et hors d'une main : les 3 premières sont
+   * automatiques, ensuite la majorité des autres joueurs doit accepter.
+   * @returns {'granted' | 'vote'}
+   */
   rebuy(token) {
     const p = this.players.get(token);
     if (!p) throw new Error('Joueur inconnu.');
     if (p.stack > 0) throw new Error('Tu as encore des jetons.');
-    if (p.inHand && this.isBetting()) throw new Error('Attends la fin de la main.');
-    if (p.rebuys >= this.opts.maxRebuys) throw new Error(`Tu as déjà utilisé tes ${this.opts.maxRebuys} recaves.`);
+    if (p.inHand && !p.folded && this.isBetting()) throw new Error('Attends la fin de la main.');
+    if (this.rebuyRequest) throw new Error('Un vote de recave est déjà en cours.');
+    if (p.rebuyRetryAt && Date.now() < p.rebuyRetryAt) {
+      const s = Math.ceil((p.rebuyRetryAt - Date.now()) / 1000);
+      throw new Error(`Ta recave vient d’être refusée : réessaie dans ${s} s.`);
+    }
+    const voters = [...this.players.values()].filter((x) => x.connected && x.id !== token).map((x) => x.id);
+    if (p.rebuys < this.opts.freeRebuys || token === this.moderatorId || voters.length === 0) {
+      this.creditRebuy(p);
+      this.push();
+      this.restartIfStalled();
+      return 'granted';
+    }
+    this.rebuyRequest = { playerId: token, pending: new Set(voters), approved: new Set(), refused: new Set() };
+    this.push();
+    return 'vote';
+  }
+
+  creditRebuy(p) {
     p.stack = this.opts.startingStack;
     p.rebuys += 1;
+    p.rebuyRetryAt = 0;
+  }
+
+  /** Une table arrêtée faute de joueurs avec des jetons repart d'elle-même. */
+  restartIfStalled() {
+    if (this.phase === 'lobby' && this.configured && this.eligiblePlayers().length >= 2) this.startHand();
+  }
+
+  rebuyNeeded(r) {
+    return Math.floor((r.pending.size + r.approved.size + r.refused.size) / 2) + 1;
+  }
+
+  /** Conclut le vote dès que l'issue est certaine. @returns {'granted'|'denied'|null} */
+  settleRebuyVote() {
+    const r = this.rebuyRequest;
+    if (!r) return null;
+    const needed = this.rebuyNeeded(r);
+    const p = this.players.get(r.playerId);
+    if (r.approved.size >= needed) {
+      this.rebuyRequest = null;
+      if (p) this.creditRebuy(p);
+      return 'granted';
+    }
+    if (r.approved.size + r.pending.size < needed) {
+      this.rebuyRequest = null;
+      if (p) p.rebuyRetryAt = Date.now() + this.opts.rebuyRetryMs;
+      return 'denied';
+    }
+    return null;
+  }
+
+  /** Vote d'un joueur ; un refus n'exclut personne. */
+  voteRebuy(token, accept) {
+    const r = this.rebuyRequest;
+    if (!r) throw new Error('Aucun vote de recave en cours.');
+    if (r.playerId === token) throw new Error('Tu ne peux pas voter pour ta propre recave.');
+    if (!r.pending.has(token)) throw new Error('Ton vote a déjà été pris en compte.');
+    r.pending.delete(token);
+    (accept ? r.approved : r.refused).add(token);
+    const requester = r.playerId;
+    const outcome = this.settleRebuyVote();
     this.push();
-    // Une table bloquée faute de joueurs peut repartir.
-    if (this.phase === 'lobby' && this.configured) this.startHand();
+    if (outcome === 'granted') this.restartIfStalled();
+    return { outcome, requester };
+  }
+
+  /** Le modérateur tranche seul le vote en cours. */
+  decideRebuy(modToken, accept) {
+    this.assertModerator(modToken);
+    const r = this.rebuyRequest;
+    if (!r) throw new Error('Aucun vote de recave en cours.');
+    const requester = r.playerId;
+    const p = this.players.get(requester);
+    this.rebuyRequest = null;
+    if (p && accept) this.creditRebuy(p);
+    else if (p) p.rebuyRetryAt = Date.now() + this.opts.rebuyRetryMs;
+    this.push();
+    if (accept) this.restartIfStalled();
+    return { outcome: accept ? 'granted' : 'denied', requester };
+  }
+
+  /** Un joueur parti ne bloque pas un vote, et sa propre demande tombe. */
+  cleanupRebuyAfterLeave(token) {
+    const r = this.rebuyRequest;
+    if (!r) return;
+    if (r.playerId === token) {
+      this.rebuyRequest = null;
+      return;
+    }
+    r.pending.delete(token);
+    r.approved.delete(token);
+    r.refused.delete(token);
+    this.settleRebuyVote();
   }
 
   /** Le modérateur ajoute ou retire des jetons (jamais ceux déjà misés). */
@@ -687,7 +784,17 @@ class PokerGame {
       smallBlind: this.opts.smallBlind,
       bigBlind: this.opts.bigBlind,
       startingStack: this.opts.startingStack,
-      maxRebuys: this.opts.maxRebuys,
+      freeRebuys: this.opts.freeRebuys,
+      rebuyRequest: this.rebuyRequest && {
+        playerId: this.rebuyRequest.playerId,
+        playerName: (this.players.get(this.rebuyRequest.playerId) || {}).name || '?',
+        amount: this.opts.startingStack,
+        approved: this.rebuyRequest.approved.size,
+        refused: this.rebuyRequest.refused.size,
+        needed: this.rebuyNeeded(this.rebuyRequest),
+        total: this.rebuyRequest.pending.size + this.rebuyRequest.approved.size + this.rebuyRequest.refused.size,
+        awaiting: [...this.rebuyRequest.pending],
+      },
       blindLevels: BLIND_LEVELS,
       canConfigure: !this.configured,
       hostPlayerId: this.hostPlayerId(),
@@ -729,6 +836,7 @@ class PokerGame {
           seat: p.seat,
           stack: p.stack,
           rebuys: p.rebuys,
+          rebuyRetryAt: p.rebuyRetryAt || 0,
           connected: p.connected,
           inHand: p.inHand,
           folded: p.folded,
